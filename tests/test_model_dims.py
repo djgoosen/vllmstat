@@ -22,10 +22,16 @@ def test_dims_from_bad_config_returns_none():
 
 
 def test_load_model_dims_reads_local_dir(tmp_path):
-    (tmp_path / "config.json").write_text(json.dumps({
-        "num_hidden_layers": 48, "num_attention_heads": 32,
-        "num_key_value_heads": 4, "head_dim": 128,
-    }))
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "num_hidden_layers": 48,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+            }
+        )
+    )
     md = load_model_dims(str(tmp_path), 262144)
     assert md.dims == {"layers": 48, "kv_heads": 4, "head_dim": 128}
     assert md.max_model_len == 262144

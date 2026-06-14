@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class Quantiles:
+    p50: float | None = None
+    p90: float | None = None
+    p99: float | None = None
+    mean: float | None = None
+
+
+@dataclass
+class GpuSample:
+    index: int
+    name: str
+    util_gpu: float | None = None      # percent 0-100
+    mem_used: int | None = None        # bytes
+    mem_total: int | None = None       # bytes
+    temp_c: float | None = None
+    power_w: float | None = None
+    power_limit_w: float | None = None
+    fan_pct: float | None = None
+    clock_sm_mhz: int | None = None
+    clock_mem_mhz: int | None = None
+
+
+@dataclass
+class GpuSnapshot:
+    available: bool = False
+    source: str = "none"               # "nvml" | "nvidia-smi" | "none"
+    gpus: list[GpuSample] = field(default_factory=list)
+    error: str | None = None
+
+
+@dataclass
+class Snapshot:
+    ts: float
+    connected: bool
+    error: str | None = None
+    model_names: list[str] = field(default_factory=list)
+    engine_count: int = 0
+    max_num_seqs: int | None = None
+    # concurrency
+    running: float = 0.0
+    waiting: float = 0.0
+    preempt_rate: float = 0.0
+    # throughput
+    gen_tps: float = 0.0
+    prompt_tps: float = 0.0
+    req_rate: float = 0.0
+    tokens_per_iter: float | None = None
+    # cache reuse
+    prefix_hit_window: float | None = None     # 0-1
+    prefix_hit_lifetime: float | None = None   # 0-1
+    src_compute: float | None = None           # fraction 0-1
+    src_cache_hit: float | None = None
+    src_external: float | None = None
+    cached_tokens_total: float = 0.0
+    recomputed_tokens_total: float = 0.0
+    external_kv_active: bool = False
+    # kv memory / compression
+    kv_usage: float = 0.0                      # 0-1
+    kv_capacity_tokens: int | None = None
+    kv_used_tokens: int | None = None
+    kv_dtype: str | None = None
+    kv_ratio: float | None = None
+    kv_ratio_kind: str = "none"                # "achieved" | "nominal" | "none"
+    kv_fp16_equiv_tokens: int | None = None
+    kv_fp16_full_ctx_gb: float | None = None
+    # latency quantiles (seconds)
+    ttft: Quantiles = field(default_factory=Quantiles)
+    tpot: Quantiles = field(default_factory=Quantiles)
+    e2e: Quantiles = field(default_factory=Quantiles)
+    queue: Quantiles = field(default_factory=Quantiles)
+    # speculative decoding
+    spec_active: bool = False
+    spec_acceptance: float | None = None       # accepted / draft_tokens
+    spec_accepted_per_draft: float | None = None
+    spec_per_pos: list[float] = field(default_factory=list)
+    # efficiency (conditional)
+    eff_active: bool = False
+    gflops: float | None = None
+    gbps: float | None = None
+    mfu: float | None = None
+    bw_util: float | None = None
+    # gpu
+    gpu: GpuSnapshot = field(default_factory=GpuSnapshot)

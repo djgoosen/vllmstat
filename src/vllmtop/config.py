@@ -32,10 +32,16 @@ class Config:
         return p
 
     @classmethod
-    def from_sources(cls, argv: list[str], env: dict[str, str]) -> "Config":
+    def from_sources(cls, argv: list[str], env: dict[str, str]) -> Config:
         ns = cls.build_parser().parse_args(argv)
         api_key = ns.api_key or env.get("VLLM_API_KEY")
         return cls(
-            url=ns.url, metrics_path=ns.metrics_path, interval=ns.interval,
-            api_key=api_key, gpu=ns.gpu, mock=ns.mock, once=ns.once, json=ns.json,
+            url=ns.url,
+            metrics_path=ns.metrics_path,
+            interval=ns.interval,
+            api_key=api_key,
+            gpu=ns.gpu,
+            mock=ns.mock,
+            once=ns.once,
+            json=ns.json,
         )

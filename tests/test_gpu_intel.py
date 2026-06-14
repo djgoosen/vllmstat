@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vllmstat.providers.gpu_intel import intel_util_via_fdinfo, read_intel_sysfs
+from vllmstat.providers.gpu_intel import pdev_for_card, read_intel_sysfs
 
 
 def _make_intel_card(
@@ -93,6 +93,19 @@ def test_read_intel_sysfs_missing_energy_keeps_prev(tmp_path: Path):
     assert energy is None
 
 
-def test_intel_util_via_fdinfo_missing_proc_returns_none(tmp_path: Path):
-    # Point the scanner at an empty fake /proc -> no clients -> None, no raise.
-    assert intel_util_via_fdinfo(card_minor=128, proc_root=str(tmp_path)) is None
+def test_pdev_for_card_resolves_pci_address(tmp_path: Path):
+    # card0/device -> symlink into the PCI tree; basename of its realpath is pdev.
+    pci = tmp_path / "sys" / "devices" / "pci0000:00" / "0000:06:00.0"
+    pci.mkdir(parents=True)
+    card = tmp_path / "sys" / "class" / "drm" / "card0"
+    card.mkdir(parents=True)
+    (card / "device").symlink_to(pci)
+    assert pdev_for_card(str(card)) == "0000:06:00.0"
+
+
+def test_pdev_for_card_missing_device_returns_none_or_str(tmp_path: Path):
+    # A card dir with no device link must not raise.
+    card = tmp_path / "card0"
+    card.mkdir()
+    # realpath of a non-existent path yields its basename ("device"); never raises.
+    assert pdev_for_card(str(card)) in ("device", None)

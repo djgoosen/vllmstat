@@ -7,7 +7,8 @@ from collections.abc import Callable
 
 from vllmstat.core.state import GpuSample, GpuSnapshot
 from vllmstat.providers.gpu_amd import parse_amd_smi_json, read_amd_sysfs
-from vllmstat.providers.gpu_intel import intel_util_via_fdinfo, read_intel_sysfs
+from vllmstat.providers.gpu_fdinfo import read_fdinfo
+from vllmstat.providers.gpu_intel import pdev_for_card, read_intel_sysfs
 from vllmstat.providers.gpu_sysfs import Card, detect_cards
 
 _SMI_QUERY = (
@@ -112,14 +113,21 @@ class GpuProvider:
         enabled: bool = True,
         drm_root: str | None = None,
         clock: Callable[[], float] = time.monotonic,
+        proc_root: str = "/proc",
+        pdev_resolver: Callable[[str], str | None] = pdev_for_card,
     ) -> None:
         self.enabled = enabled
         self._drm_root = drm_root
         self._clock = clock
+        self._proc_root = proc_root
+        self._pdev_resolver = pdev_resolver
         self._mode: str | None = None
         self._nvml: object | None = None
         # Per-card Intel energy carry: card index -> (energy_uj, time).
         self._intel_energy: dict[int, tuple[int, float]] = {}
+        # Per-card Intel fdinfo cycle carry for util deltas: card index -> eng->cycles.
+        self._intel_fdinfo_busy: dict[int, dict[str, int]] = {}
+        self._intel_fdinfo_total: dict[int, dict[str, int]] = {}
 
     # -- vendor backends -------------------------------------------------
 
@@ -182,9 +190,23 @@ class GpuProvider:
             g.index = c.index
             if new_energy is not None:
                 self._intel_energy[c.index] = new_energy
-            util = intel_util_via_fdinfo(card_minor=128 + c.index)
-            if util is not None:
-                g.util_gpu = util
+
+            # Real util%/VRAM via DRM fdinfo (sysfs exposes neither on xe).
+            pdev = self._pdev_resolver(c.path)
+            if pdev:
+                stats, busy, total = read_fdinfo(
+                    pdev,
+                    proc_root=self._proc_root,
+                    prev_busy=self._intel_fdinfo_busy.get(c.index),
+                    prev_total=self._intel_fdinfo_total.get(c.index),
+                    now=now,
+                )
+                g.util_gpu = stats.util_pct
+                g.mem_used = stats.vram_used_bytes
+                # mem_total stays None: total VRAM capacity isn't reliably
+                # available on xe yet.
+                self._intel_fdinfo_busy[c.index] = busy
+                self._intel_fdinfo_total[c.index] = total
             gpus.append(g)
         return gpus, "intel-sysfs"
 

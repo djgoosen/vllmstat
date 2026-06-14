@@ -1,9 +1,11 @@
 """Intel GPU backend for the ``xe`` (and ``i915``) drivers via sysfs.
 
-The ``xe`` driver exposes no ``gpu_busy_percent`` and no ``mem_info_vram_*``, so
-util% and VRAM are not available here (documented best-effort only). What we can
-read out of the box: GPU clock, package temperature, fan RPM, power cap, and a
-power figure derived from the ``energy1_input`` counter delta.
+The ``xe`` driver exposes no ``gpu_busy_percent`` and no ``mem_info_vram_*`` in
+sysfs, so util% and VRAM come from the DRM ``fdinfo`` aggregator (see
+``gpu_fdinfo``) rather than from here. What this module reads out of the box:
+GPU clock, package temperature, fan RPM, power cap, and a power figure derived
+from the ``energy1_input`` counter delta. It also resolves a card's PCI address
+(``pdev``) so the fdinfo aggregator can be pointed at the right device.
 
 Every read catches OS errors and degrades to ``None``; nothing here ever raises.
 """
@@ -99,66 +101,17 @@ def read_intel_sysfs(
     )
 
 
-def _fdinfo_kv(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in text.splitlines():
-        key, sep, val = line.partition(":")
-        if sep:
-            out[key.strip()] = val.strip()
-    return out
+def pdev_for_card(card_path: str) -> str | None:
+    """Return the PCI address (``pdev``) backing ``card_path``, e.g.
+    ``0000:06:00.0``.
 
-
-def intel_util_via_fdinfo(
-    card_minor: int = 128,
-    proc_root: str = "/proc",
-) -> float | None:
-    """Best-effort GPU util% by aggregating per-client DRM cycles from fdinfo.
-
-    Scans ``/proc/*/fdinfo/*`` for DRM clients on the ``renderD<minor>`` node
-    and sums their ``drm-cycles-*`` against ``drm-total-cycles-*``. Returns a
-    percentage, or ``None`` when the data is unreadable/unsupported (common on
-    the ``xe`` driver and without root). Never raises.
+    ``<card_path>/device`` is a symlink into the PCI tree; its realpath
+    basename is the PCI bus address that ``fdinfo`` reports as ``drm-pdev``.
+    Returns ``None`` when the link can't be resolved. Never raises.
     """
-    render_node = f"renderD{card_minor}"
-    busy = 0
-    total = 0
     try:
-        pids = os.listdir(proc_root)
+        target = os.path.realpath(os.path.join(card_path, "device"))
     except OSError:
         return None
-
-    for pid in pids:
-        if not pid.isdigit():
-            continue
-        fdinfo_dir = os.path.join(proc_root, pid, "fdinfo")
-        try:
-            fds = os.listdir(fdinfo_dir)
-        except OSError:
-            continue
-        for fd in fds:
-            text = read_text(os.path.join(fdinfo_dir, fd))
-            if not text or "drm-" not in text:
-                continue
-            kv = _fdinfo_kv(text)
-            pdev = kv.get("drm-pdev", "")
-            # Match the right card: either the render-node minor or pdev.
-            if render_node not in pdev and render_node not in kv.get("drm-client-id", ""):
-                # No reliable node hint; only accept entries that name our node.
-                if not any(render_node in v for v in kv.values()):
-                    continue
-            for key, val in kv.items():
-                if key.startswith("drm-total-cycles"):
-                    try:
-                        total += int(val.split()[0])
-                    except (ValueError, IndexError):
-                        pass
-                elif key.startswith("drm-cycles"):
-                    try:
-                        busy += int(val.split()[0])
-                    except (ValueError, IndexError):
-                        pass
-
-    if total <= 0:
-        return None
-    pct = busy / total * 100.0
-    return max(0.0, min(100.0, pct))
+    name = os.path.basename(target)
+    return name or None

@@ -123,6 +123,76 @@ def test_provider_intel_power_delta_across_two_samples(tmp_path):  # noqa: ANN00
     assert abs(power_w - 30.0) < 1e-6
 
 
+_FDINFO = """drm-driver:\txe
+drm-pdev:\t{pdev}
+drm-client-id:\t{cid}
+drm-cycles-ccs:\t{ccs}
+drm-total-cycles-ccs:\t{total}
+drm-resident-vram0:\t{vram} KiB
+"""
+
+
+def _fdinfo_client(proc_root, pid, fd, *, pdev, cid, ccs, total, vram):  # noqa: ANN001
+    d = proc_root / str(pid) / "fdinfo"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / str(fd)).write_text(_FDINFO.format(pdev=pdev, cid=cid, ccs=ccs, total=total, vram=vram))
+
+
+def test_provider_intel_picks_up_fdinfo_util_and_vram(tmp_path):  # noqa: ANN001
+    # DRM card under one tmp tree; a fake /proc with GPU clients under another.
+    drm = _intel_card(tmp_path / "sys")
+    proc = tmp_path / "proc"
+    pdev = "0000:06:00.0"
+    _fdinfo_client(proc, 100, 3, pdev=pdev, cid=1, ccs=100, total=1000, vram=20_000_000)
+    _fdinfo_client(proc, 200, 4, pdev=pdev, cid=2, ccs=50, total=1000, vram=10_000_000)
+
+    times = iter([100.0, 102.0])
+    p = GpuProvider(
+        enabled=True,
+        drm_root=str(drm),
+        clock=lambda: next(times),
+        proc_root=str(proc),
+        pdev_resolver=lambda _card_path: pdev,  # bypass realpath on the fake tree
+    )
+
+    snap1 = p.sample()
+    g1 = snap1.gpus[0]
+    assert g1.vendor == "intel"
+    # VRAM available on the first sample (sum across unique clients, KiB->bytes).
+    assert g1.mem_used == (20_000_000 + 10_000_000) * 1024
+    assert g1.mem_total is None  # total VRAM capacity unknown on xe
+    assert g1.util_gpu is None  # first sample -> no util yet
+
+    # Advance the compute counter: client 1 ccs 100->600 (+500), engine elapsed
+    # cycles 1000->2000 (+1000) -> 50% util on the second sample.
+    _fdinfo_client(proc, 100, 3, pdev=pdev, cid=1, ccs=600, total=2000, vram=20_000_000)
+    _fdinfo_client(proc, 200, 4, pdev=pdev, cid=2, ccs=50, total=2000, vram=10_000_000)
+    snap2 = p.sample()
+    g2 = snap2.gpus[0]
+    assert g2.util_gpu == 50.0
+    assert g2.mem_used == (20_000_000 + 10_000_000) * 1024
+
+
+def test_provider_intel_no_fdinfo_leaves_util_vram_none(tmp_path):  # noqa: ANN001
+    # No GPU clients in the fake /proc -> util/VRAM stay None, sysfs fields still
+    # populate, and nothing raises.
+    drm = _intel_card(tmp_path / "sys")
+    proc = tmp_path / "proc"
+    proc.mkdir()
+    p = GpuProvider(
+        enabled=True,
+        drm_root=str(drm),
+        clock=lambda: 100.0,
+        proc_root=str(proc),
+        pdev_resolver=lambda _card_path: "0000:06:00.0",
+    )
+    g = p.sample().gpus[0]
+    assert g.util_gpu is None
+    assert g.mem_used is None and g.mem_total is None
+    assert g.temp_c == 57.0  # sysfs temp still read
+    assert g.fan_rpm == 1060
+
+
 def test_provider_no_cards_no_nvml_reports_unavailable(tmp_path):  # noqa: ANN001
     empty = tmp_path / "drm"
     empty.mkdir()

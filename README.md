@@ -66,6 +66,7 @@ vllmstat --once --json
 | `q` | Quit |
 | `p` | Pause / resume polling |
 | `g` | Toggle GPU panel on/off |
+| `r` | Reset the SESSION averages |
 | `+` / `=` | Halve the refresh interval (faster) |
 | `-` | Double the refresh interval (slower) |
 
@@ -88,6 +89,7 @@ vllmstat --once --json
 
 - **Concurrency** — running requests, waiting queue depth, preemption rate, with mini sparklines.
 - **Throughput** — generation tok/s, prompt tok/s, tokens per iteration, requests per second.
+- **Session (while serving)** — running averages accumulated only while the server is actively serving (i.e. requests in flight, so idle gaps don't dilute the numbers): average decode and prefill/pp tok/s, the busy/idle split with the fraction of time spent serving, total requests completed, average generated tokens per request, and cumulative generated/prompt token totals. Press `r` to reset these counters at any time.
 - **Cache & KV memory** — prefix-cache hit rate (windowed and lifetime), token-source breakdown (compute vs. cache-hit vs. external KV transfer), KV-cache utilisation percentage, KV-cache capacity in tokens, and — when a quantised KV dtype is detected — the dtype (`fp8_e4m3`, `turboquant_k3v4_nc`, …), effective compression ratio vs. fp16, and how much fp16 memory the model's full context would require. For example, a `turboquant k3v4` cache shows ~4.6× compression and a note that the full context would need 25.8 GB in fp16.
 - **Latency percentiles** — TTFT, TPOT, end-to-end, and queue-wait time, each at p50 / p90 / p99, computed over a rolling window so recent spikes are visible immediately.
 - **Speculative decoding** — acceptance rate, accepted tokens per draft, per-position acceptance (when the server reports it). The panel is hidden when spec-decode is not active.
@@ -103,11 +105,11 @@ vllmstat --once --json
 |--------|-----------|--------------|
 | **NVIDIA** | Full: util %, VRAM used/total, temperature, power draw/limit, SM & memory clocks, fan %. | NVIDIA driver. The bundled `nvidia-ml-py` uses NVML; `nvidia-smi` on `PATH` is used as a fallback. |
 | **AMD** | Full: util %, VRAM used/total, temperature, power draw/limit, fan RPM, clock — via the `amdgpu` kernel driver's sysfs. | `amdgpu` kernel driver (in-tree on modern Linux). Install ROCm's `amd-smi` (or `rocm-smi`) for richer data; it's used automatically when on `PATH`. |
-| **Intel** | Utilisation %, temperature, power draw/limit, clock, and fan RPM out of the box via the `xe`/`i915` sysfs — **no root**. **VRAM used** via DRM `fdinfo` — see the note below for the root requirement. | `xe` or `i915` kernel driver. No extra tools needed; util/temp/power/clock/fan work as a normal user. **Root** (or matching UID) is only needed for VRAM. |
+| **Intel** | Utilisation %, temperature, power draw/limit, GPU clock, fan RPM, and **total VRAM** out of the box via the `xe`/`i915` sysfs — **no root**. **VRAM used** via DRM `fdinfo` — see the note below for the root requirement. The `xe` driver exposes no memory clock, so the clock shows just the GPU clock (`clk 2800 MHz`, no `/mem`). | `xe` or `i915` kernel driver. No extra tools needed; util/temp/power/clock/fan/total-VRAM work as a normal user. **Root** (or matching UID) is only needed for VRAM *used*. |
 
 **Intel utilisation (no root):** the `xe` driver exposes no `gpu_busy_percent`, but it does expose a world-readable, cumulative GT-idle counter at `…/device/tile*/gt*/gtidle/idle_residency_ms`. `vllmstat` reads it each refresh and derives util % as `100 × (1 − Δidle_ms / Δwall_ms)`, taking the busiest GT (a card can have a render/compute `gt0` and a media `gt1`). No root, no extra tools. Utilisation needs two refreshes to produce its first delta; Intel power is derived from the `energy1_input` counter, so it likewise appears one refresh after the panel opens.
 
-**Intel VRAM (DRM `fdinfo`, root-gated):** the `xe` driver exposes no `mem_info_vram_*` in sysfs, so `vllmstat` reads VRAM the way `nvtop` does — by summing each GPU client's `drm-resident-vram0` from `/proc/<pid>/fdinfo/<fd>`. Reading another process's `fdinfo` requires a matching UID or root, so VRAM appears only when `vllmstat` can read the vLLM worker processes (see **Getting GPU stats** below). Without that access VRAM shows `—` with a `(VRAM needs root)` hint; total VRAM capacity isn't reliably exposed on `xe` yet, so VRAM is shown as `used/—`.
+**Intel VRAM (DRM `fdinfo`, root-gated):** the `xe` driver exposes no `mem_info_vram_*` in sysfs, so `vllmstat` reads VRAM *used* the way `nvtop` does — by summing each GPU client's `drm-resident-vram0` from `/proc/<pid>/fdinfo/<fd>`. Reading another process's `fdinfo` requires a matching UID or root, so VRAM *used* appears only when `vllmstat` can read the vLLM worker processes (see **Getting GPU stats** below). Without that access used-VRAM shows `—` with a `(VRAM needs root)` hint. **Total** VRAM, however, comes from the GPU's largest prefetchable PCI BAR (`…/device/resource`) — world-readable, no root — so the memory percentage and `used/total` render as soon as used-VRAM is available.
 
 ---
 

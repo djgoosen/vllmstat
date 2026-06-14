@@ -1,4 +1,4 @@
-from vllmstat.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
+from vllmstat.format import fmt_bytes, fmt_dur, fmt_dur_hms, fmt_pct, fmt_si, sparkline
 
 
 def test_sparkline_basic():
@@ -31,3 +31,14 @@ def test_fmt_dur():
 def test_fmt_pct():
     assert fmt_pct(0.381) == "38.1%"
     assert fmt_pct(None) == "—"
+
+
+def test_fmt_dur_hms():
+    assert fmt_dur_hms(None) == "—"
+    assert fmt_dur_hms(0) == "0s"
+    assert fmt_dur_hms(42) == "42s"
+    assert fmt_dur_hms(59.9) == "59s"
+    assert fmt_dur_hms(723) == "12m03s"  # 12*60 + 3
+    assert fmt_dur_hms(3599) == "59m59s"
+    assert fmt_dur_hms(3900) == "1h05m"  # 1*3600 + 5*60
+    assert fmt_dur_hms(7261) == "2h01m"

@@ -49,3 +49,19 @@ def fmt_pct(frac: float | None) -> str:
     if frac is None:
         return "—"
     return f"{frac * 100:.1f}%"
+
+
+def fmt_dur_hms(seconds: float | None) -> str:
+    """Compact h/m/s duration: ``None``→``—``; ``<60``→``42s``;
+    ``<3600``→``12m03s``; else ``1h05m``. Never raises."""
+    if seconds is None:
+        return "—"
+    total = int(seconds)
+    if total < 60:
+        return f"{total}s"
+    if total < 3600:
+        m, s = divmod(total, 60)
+        return f"{m}m{s:02d}s"
+    h, rem = divmod(total, 3600)
+    m, _ = divmod(rem, 60)
+    return f"{h}h{m:02d}m"

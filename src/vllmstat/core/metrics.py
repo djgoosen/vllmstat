@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from vllmstat.core.histogram import histogram_quantile, windowed_buckets
 from vllmstat.core.kv import compute_kv
 from vllmstat.core.parse import (
@@ -27,6 +29,19 @@ def _int(s: str | None) -> int | None:
         return None
 
 
+@dataclass(frozen=True)
+class _SessionStats:
+    active_s: float = 0.0
+    idle_s: float = 0.0
+    active_frac: float | None = None
+    avg_decode_tps: float | None = None
+    avg_prefill_tps: float | None = None
+    requests: int = 0
+    gen_tokens: float = 0.0
+    prompt_tokens: float = 0.0
+    avg_gen_tokens_per_req: float | None = None
+
+
 class MetricsEngine:
     def __init__(
         self,
@@ -45,6 +60,105 @@ class MetricsEngine:
         self._rbytes = Rate(alpha)
         self._wbytes = Rate(alpha)
         self._prev: Families | None = None
+        # Session accumulators (averages while the server is actively serving).
+        self._sess_t_prev: float | None = None
+        self._sess_active_s = 0.0
+        self._sess_idle_s = 0.0
+        self._sess_acc_gen = 0.0
+        self._sess_acc_prompt = 0.0
+        self._sess_gen0: float | None = None
+        self._sess_prompt0: float | None = None
+        self._sess_req0: float | None = None
+        self._sess_prev_gen: float | None = None
+        self._sess_prev_prompt: float | None = None
+
+    def reset_session(self) -> None:
+        """Clear all session accumulators; the next sample re-baselines."""
+        self._sess_t_prev = None
+        self._sess_active_s = 0.0
+        self._sess_idle_s = 0.0
+        self._sess_acc_gen = 0.0
+        self._sess_acc_prompt = 0.0
+        self._sess_gen0 = None
+        self._sess_prompt0 = None
+        self._sess_req0 = None
+        self._sess_prev_gen = None
+        self._sess_prev_prompt = None
+
+    def _session(
+        self,
+        running: float,
+        gen_total: float,
+        prompt_total: float,
+        req_total: float,
+        now: float,
+    ) -> _SessionStats:
+        """Accumulate active/idle time and decode/prefill tokens while serving.
+
+        "Active" is a sample with ``running > 0``: its window adds to active
+        time and accumulates the generation/prompt-token deltas. Idle windows
+        only add to idle time. ``max(0, …)`` on the deltas guards counter
+        resets; a drop in ``gen_total`` below the session baseline means the
+        server restarted, so we re-baseline and zero the accumulators.
+        """
+        if self._sess_gen0 is None:
+            self._sess_gen0 = gen_total
+            self._sess_prompt0 = prompt_total
+            self._sess_req0 = req_total
+            self._sess_prev_gen = gen_total
+            self._sess_prev_prompt = prompt_total
+            self._sess_t_prev = now
+            return _SessionStats()
+
+        if gen_total < self._sess_gen0:
+            # Counter reset (server restart): re-baseline, drop accumulators.
+            self._sess_gen0 = gen_total
+            self._sess_prompt0 = prompt_total
+            self._sess_req0 = req_total
+            self._sess_prev_gen = gen_total
+            self._sess_prev_prompt = prompt_total
+            self._sess_t_prev = now
+            self._sess_active_s = 0.0
+            self._sess_idle_s = 0.0
+            self._sess_acc_gen = 0.0
+            self._sess_acc_prompt = 0.0
+            return _SessionStats()
+
+        assert self._sess_t_prev is not None
+        assert self._sess_prev_gen is not None
+        assert self._sess_prev_prompt is not None
+        dt = now - self._sess_t_prev
+        if dt > 0:
+            dgen = max(0.0, gen_total - self._sess_prev_gen)
+            dprompt = max(0.0, prompt_total - self._sess_prev_prompt)
+            if running > 0:
+                self._sess_active_s += dt
+                self._sess_acc_gen += dgen
+                self._sess_acc_prompt += dprompt
+            else:
+                self._sess_idle_s += dt
+            self._sess_prev_gen = gen_total
+            self._sess_prev_prompt = prompt_total
+            self._sess_t_prev = now
+
+        active_s = self._sess_active_s
+        total_s = active_s + self._sess_idle_s
+        gen0 = self._sess_gen0 or 0.0
+        prompt0 = self._sess_prompt0 or 0.0
+        gen_tokens = max(0.0, gen_total - gen0)
+        prompt_tokens = max(0.0, prompt_total - prompt0)
+        requests = int(req_total - self._sess_req0) if self._sess_req0 is not None else 0
+        return _SessionStats(
+            active_s=active_s,
+            idle_s=self._sess_idle_s,
+            active_frac=(active_s / total_s) if total_s > 0 else None,
+            avg_decode_tps=(self._sess_acc_gen / active_s) if active_s > 0 else None,
+            avg_prefill_tps=(self._sess_acc_prompt / active_s) if active_s > 0 else None,
+            requests=requests,
+            gen_tokens=gen_tokens,
+            prompt_tokens=prompt_tokens,
+            avg_gen_tokens_per_req=(gen_tokens / requests) if requests > 0 else None,
+        )
 
     def _quantiles(self, fam: Families, base: str) -> Quantiles:
         cur = get_buckets(fam, base)
@@ -71,11 +185,18 @@ class MetricsEngine:
         )
         engines = {lbl.get("engine") for lbl, _ in fam.get("vllm:num_requests_running", [])}
 
+        running = sum_value(fam, "vllm:num_requests_running") or 0.0
+
         # throughput rates
-        gen = self._gen.update(sum_value(fam, "vllm:generation_tokens_total") or 0.0, now)
-        prompt = self._prompt.update(sum_value(fam, "vllm:prompt_tokens_total") or 0.0, now)
-        req = self._req.update(sum_value(fam, "vllm:request_success_total") or 0.0, now)
+        gen_total = sum_value(fam, "vllm:generation_tokens_total") or 0.0
+        prompt_total = sum_value(fam, "vllm:prompt_tokens_total") or 0.0
+        req_total = sum_value(fam, "vllm:request_success_total") or 0.0
+        gen = self._gen.update(gen_total, now)
+        prompt = self._prompt.update(prompt_total, now)
+        req = self._req.update(req_total, now)
         preempt = self._preempt.update(sum_value(fam, "vllm:num_preemptions_total") or 0.0, now)
+
+        sess = self._session(running, gen_total, prompt_total, req_total, now)
 
         # tokens/iter mean
         it_sum = sum_value(fam, "vllm:iteration_tokens_total_sum")
@@ -143,13 +264,22 @@ class MetricsEngine:
             connected=True,
             model_names=model_names or ([mn] if (mn := labels.get("model_name")) else []),
             engine_count=len([e for e in engines if e is not None]) or 1,
-            running=sum_value(fam, "vllm:num_requests_running") or 0.0,
+            running=running,
             waiting=sum_value(fam, "vllm:num_requests_waiting") or 0.0,
             preempt_rate=preempt,
             gen_tps=gen,
             prompt_tps=prompt,
             req_rate=req,
             tokens_per_iter=tokens_per_iter,
+            session_active_s=sess.active_s,
+            session_idle_s=sess.idle_s,
+            session_active_frac=sess.active_frac,
+            avg_decode_tps=sess.avg_decode_tps,
+            avg_prefill_tps=sess.avg_prefill_tps,
+            session_requests=sess.requests,
+            session_gen_tokens=sess.gen_tokens,
+            session_prompt_tokens=sess.prompt_tokens,
+            avg_gen_tokens_per_req=sess.avg_gen_tokens_per_req,
             prefix_hit_window=hit_win,
             prefix_hit_lifetime=hit_life,
             src_compute=frac("local_compute"),

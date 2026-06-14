@@ -53,6 +53,16 @@ class Snapshot:
     prompt_tps: float = 0.0
     req_rate: float = 0.0
     tokens_per_iter: float | None = None
+    # session averages (accumulated while the server is actively serving)
+    session_active_s: float = 0.0
+    session_idle_s: float = 0.0
+    session_active_frac: float | None = None
+    avg_decode_tps: float | None = None
+    avg_prefill_tps: float | None = None
+    session_requests: int = 0
+    session_gen_tokens: float = 0.0
+    session_prompt_tokens: float = 0.0
+    avg_gen_tokens_per_req: float | None = None
     # cache reuse
     prefix_hit_window: float | None = None  # 0-1
     prefix_hit_lifetime: float | None = None  # 0-1

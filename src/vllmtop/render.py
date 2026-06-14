@@ -81,10 +81,8 @@ def latency(s: Snapshot) -> str:
 def specdecode(s: Snapshot) -> str:
     if not s.spec_active:
         return ""
-    return (
-        f"SPEC DECODE  acceptance {fmt_pct(s.spec_acceptance)}  "
-        f"accepted/draft {s.spec_accepted_per_draft:.2f}"
-    )
+    apd = f"{s.spec_accepted_per_draft:.2f}" if s.spec_accepted_per_draft is not None else "—"
+    return f"SPEC DECODE  acceptance {fmt_pct(s.spec_acceptance)}  accepted/draft {apd}"
 
 
 def efficiency(s: Snapshot) -> str:
@@ -106,16 +104,18 @@ def gpu(s: Snapshot) -> str:
     lines = []
     for g in s.gpu.gpus:
         mem_pct = (g.mem_used / g.mem_total) if (g.mem_used and g.mem_total) else None
-        lines.append(
-            f"GPU {g.index}  {g.name}  {g.util_gpu:.0f}%  "
+        util = f"{g.util_gpu:.0f}%" if g.util_gpu is not None else "—"
+        temp = f"{g.temp_c:.0f}°C" if g.temp_c is not None else "—"
+        pwr_w = f"{g.power_w:.0f}" if g.power_w is not None else "—"
+        pwr_lim = f"{g.power_limit_w:.0f}" if g.power_limit_w is not None else "—"
+        parts = [
+            f"GPU {g.index}  {g.name}  {util}  "
             f"{fmt_bytes(g.mem_used)}/{fmt_bytes(g.mem_total)} ({fmt_pct(mem_pct)})  "
-            f"{g.temp_c:.0f}°C  {g.power_w:.0f}/{g.power_limit_w:.0f} W  "
-            f"clk {g.clock_sm_mhz}/{g.clock_mem_mhz} MHz"
-        )
+            f"{temp}  {pwr_w}/{pwr_lim} W"
+        ]
+        if g.clock_sm_mhz is not None or g.clock_mem_mhz is not None:
+            sm = g.clock_sm_mhz if g.clock_sm_mhz is not None else "—"
+            mem = g.clock_mem_mhz if g.clock_mem_mhz is not None else "—"
+            parts.append(f"  clk {sm}/{mem} MHz")
+        lines.append("".join(parts))
     return "\n".join(lines)
-
-
-def footer(s: Snapshot) -> str:
-    gpu_badge = "GPU ✓" if s.gpu.available else "GPU ✗"
-    vllm_badge = "vLLM ✓" if s.connected else "vLLM ✗"
-    return f"[q]uit [p]ause [+/-]interval [g]pu [?]help    ● {vllm_badge}  {gpu_badge}"

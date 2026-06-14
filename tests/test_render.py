@@ -77,3 +77,38 @@ def test_gpu_panel_renders_device():
 
 def test_specdecode_hidden_when_inactive():
     assert render.specdecode(_snap(spec_active=False)) == ""
+
+
+def test_gpu_panel_handles_all_none_optional_fields():
+    from vllmtop.core.state import GpuSample, GpuSnapshot
+
+    s = _snap(
+        gpu=GpuSnapshot(
+            available=True,
+            source="nvidia-smi",
+            gpus=[
+                GpuSample(
+                    index=0,
+                    name="GPU X",
+                    util_gpu=None,
+                    mem_used=None,
+                    mem_total=None,
+                    temp_c=None,
+                    power_w=None,
+                    power_limit_w=None,
+                    clock_sm_mhz=None,
+                    clock_mem_mhz=None,
+                    fan_pct=None,
+                )
+            ],
+        )
+    )
+    text = render.gpu(s)  # must NOT raise
+    assert "GPU X" in text
+    assert "—" in text  # missing values shown as em dash
+
+
+def test_specdecode_handles_none_accepted_per_draft():
+    s = _snap(spec_active=True, spec_acceptance=0.4, spec_accepted_per_draft=None)
+    text = render.specdecode(s)  # must NOT raise
+    assert "acceptance" in text

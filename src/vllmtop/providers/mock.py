@@ -2,7 +2,40 @@ from __future__ import annotations
 
 import math
 
+from vllmtop.core.state import GpuSample, GpuSnapshot
+
 _M = "mock-7b"
+
+
+def mock_gpu_snapshot(tick: int = 0) -> GpuSnapshot:
+    """Two synthetic GPUs so --mock renders a complete (multi-GPU) dashboard."""
+
+    def _g(i: int, name: str, total: int) -> GpuSample:
+        util = 50.0 + 40.0 * (math.sin((tick + i * 3) / 4.0) + 1.0) / 2.0
+        return GpuSample(
+            index=i,
+            name=name,
+            util_gpu=round(util),
+            mem_used=int(total * 0.86),
+            mem_total=total,
+            temp_c=58.0 + i * 3,
+            power_w=140.0 + i * 20,
+            power_limit_w=300.0,
+            fan_pct=42.0 + i * 5,
+            clock_sm_mhz=2520,
+            clock_mem_mhz=9501,
+        )
+
+    return GpuSnapshot(
+        available=True,
+        source="mock",
+        gpus=[
+            _g(0, "NVIDIA RTX 4090", 24_000_000_000),
+            _g(1, "NVIDIA RTX 4090", 24_000_000_000),
+        ],
+    )
+
+
 _E = 'engine="0",model_name="mock-7b"'
 
 

@@ -15,7 +15,7 @@ from vllmtop.core.parse import parse_metrics
 from vllmtop.core.state import Snapshot
 from vllmtop.model_dims import load_model_dims
 from vllmtop.providers.gpu import GpuProvider
-from vllmtop.providers.mock import MockProvider
+from vllmtop.providers.mock import MockProvider, mock_gpu_snapshot
 from vllmtop.providers.vllm import VllmProvider
 from vllmtop.widgets import Panel
 
@@ -106,7 +106,10 @@ class VllmTopApp(App):
             snap = self.snapshot or Snapshot(ts=now, connected=False, error=err)
             snap.connected = False
             snap.error = err
-        snap.gpu = self._gpu.sample()
+        if self._mock is not None and self._gpu.enabled:
+            snap.gpu = mock_gpu_snapshot(self._tick_n)
+        else:
+            snap.gpu = self._gpu.sample()
         self._push_history(snap)
         self.snapshot = snap
         self._refresh(snap)

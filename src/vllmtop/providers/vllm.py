@@ -21,8 +21,12 @@ class ModelInfo:
 
 class VllmProvider:
     def __init__(
-        self, *, base_url: str, metrics_path: str = "/metrics",
-        api_key: str | None = None, timeout: float = 5.0,
+        self,
+        *,
+        base_url: str,
+        metrics_path: str = "/metrics",
+        api_key: str | None = None,
+        timeout: float = 5.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")

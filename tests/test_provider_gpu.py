@@ -1,4 +1,4 @@
-from vllmtop.providers.gpu import read_nvml, parse_nvidia_smi_csv, GpuProvider
+from vllmtop.providers.gpu import GpuProvider, parse_nvidia_smi_csv, read_nvml
 
 
 class FakeNvml:
@@ -6,22 +6,47 @@ class FakeNvml:
     NVML_CLOCK_SM = 1
     NVML_CLOCK_MEM = 2
 
-    def nvmlInit(self): ...
-    def nvmlShutdown(self): ...
-    def nvmlDeviceGetCount(self): return 1
-    def nvmlDeviceGetHandleByIndex(self, i): return i
-    def nvmlDeviceGetName(self, h): return "NVIDIA Test GPU"
-    def nvmlDeviceGetUtilizationRates(self, h):
-        class U: gpu = 81; memory = 60
+    def nvmlInit(self): ...  # noqa: ANN201
+
+    def nvmlShutdown(self): ...  # noqa: ANN201
+
+    def nvmlDeviceGetCount(self):  # noqa: ANN201
+        return 1
+
+    def nvmlDeviceGetHandleByIndex(self, i):  # noqa: ANN201
+        return i
+
+    def nvmlDeviceGetName(self, h):  # noqa: ANN201
+        return "NVIDIA Test GPU"
+
+    def nvmlDeviceGetUtilizationRates(self, h):  # noqa: ANN201
+        class U:
+            gpu = 81
+            memory = 60
+
         return U()
-    def nvmlDeviceGetMemoryInfo(self, h):
-        class M: used = 23_100_000_000; total = 24_000_000_000
+
+    def nvmlDeviceGetMemoryInfo(self, h):  # noqa: ANN201
+        class M:
+            used = 23_100_000_000
+            total = 24_000_000_000
+
         return M()
-    def nvmlDeviceGetTemperature(self, h, sensor): return 61
-    def nvmlDeviceGetPowerUsage(self, h): return 142_000      # mW
-    def nvmlDeviceGetEnforcedPowerLimit(self, h): return 200_000
-    def nvmlDeviceGetFanSpeed(self, h): return 45
-    def nvmlDeviceGetClockInfo(self, h, c): return 2520 if c == 1 else 9501
+
+    def nvmlDeviceGetTemperature(self, h, sensor):  # noqa: ANN201
+        return 61
+
+    def nvmlDeviceGetPowerUsage(self, h):  # noqa: ANN201
+        return 142_000  # mW
+
+    def nvmlDeviceGetEnforcedPowerLimit(self, h):  # noqa: ANN201
+        return 200_000
+
+    def nvmlDeviceGetFanSpeed(self, h):  # noqa: ANN201
+        return 45
+
+    def nvmlDeviceGetClockInfo(self, h, c):  # noqa: ANN201
+        return 2520 if c == 1 else 9501
 
 
 def test_read_nvml_builds_samples():

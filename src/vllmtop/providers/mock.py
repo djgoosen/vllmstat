@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import math
 
+_M = "mock-7b"
+_E = 'engine="0",model_name="mock-7b"'
+
 
 class MockProvider:
     """Deterministic synthetic vLLM metrics for --mock and tests."""
@@ -13,7 +16,7 @@ class MockProvider:
         self._q = 5_000_000.0
         self._h = 1_500_000.0
 
-    def metrics_text(self) -> str:
+    def metrics_text(self) -> str:  # noqa: PLR0914
         self._tick += 1
         t = self._tick
         running = 2 + int(2 * (math.sin(t / 3) + 1))
@@ -25,49 +28,57 @@ class MockProvider:
         kv = 0.10 + 0.05 * (math.sin(t / 6) + 1)
         ttft_buckets = self._hist("vllm:time_to_first_token_seconds", base=0.05, n=t)
         tpot_buckets = self._hist("vllm:request_time_per_output_token_seconds", base=0.01, n=t)
-        return f"""\
-# TYPE vllm:num_requests_running gauge
-vllm:num_requests_running{{engine="0",model_name="mock-7b"}} {running}.0
-# TYPE vllm:num_requests_waiting gauge
-vllm:num_requests_waiting{{engine="0",model_name="mock-7b"}} {waiting}.0
-# TYPE vllm:num_preemptions_total counter
-vllm:num_preemptions_total{{engine="0",model_name="mock-7b"}} 0.0
-# TYPE vllm:generation_tokens_total counter
-vllm:generation_tokens_total{{engine="0",model_name="mock-7b"}} {self._gen:.1f}
-# TYPE vllm:prompt_tokens_total counter
-vllm:prompt_tokens_total{{engine="0",model_name="mock-7b"}} {self._prompt:.1f}
-# TYPE vllm:request_success_total counter
-vllm:request_success_total{{engine="0",model_name="mock-7b"}} {t * 4}.0
-# TYPE vllm:prefix_cache_queries_total counter
-vllm:prefix_cache_queries_total{{engine="0",model_name="mock-7b"}} {self._q:.1f}
-# TYPE vllm:prefix_cache_hits_total counter
-vllm:prefix_cache_hits_total{{engine="0",model_name="mock-7b"}} {self._h:.1f}
-# TYPE vllm:prompt_tokens_cached_total counter
-vllm:prompt_tokens_cached_total{{engine="0",model_name="mock-7b"}} {self._h:.1f}
-# TYPE vllm:prompt_tokens_recomputed_total counter
-vllm:prompt_tokens_recomputed_total{{engine="0",model_name="mock-7b"}} 12.0
-# TYPE vllm:prompt_tokens_by_source_total counter
-vllm:prompt_tokens_by_source_total{{engine="0",model_name="mock-7b",source="local_compute"}} {self._prompt * 0.7:.1f}
-vllm:prompt_tokens_by_source_total{{engine="0",model_name="mock-7b",source="local_cache_hit"}} {self._prompt * 0.3:.1f}
-vllm:prompt_tokens_by_source_total{{engine="0",model_name="mock-7b",source="external_kv_transfer"}} 0.0
-# TYPE vllm:kv_cache_usage_perc gauge
-vllm:kv_cache_usage_perc{{engine="0",model_name="mock-7b"}} {kv:.4f}
-# TYPE vllm:cache_config_info gauge
-vllm:cache_config_info{{block_size="16",cache_dtype="fp8_e4m3",num_gpu_blocks="20000",enable_prefix_caching="True",engine="0"}} 1.0
-# TYPE vllm:iteration_tokens_total histogram
-vllm:iteration_tokens_total_sum{{engine="0",model_name="mock-7b"}} {t * 1024}.0
-vllm:iteration_tokens_total_count{{engine="0",model_name="mock-7b"}} {t}.0
-# TYPE vllm:spec_decode_num_drafts_total counter
-vllm:spec_decode_num_drafts_total{{engine="0",model_name="mock-7b"}} {t * 100}.0
-# TYPE vllm:spec_decode_num_draft_tokens_total counter
-vllm:spec_decode_num_draft_tokens_total{{engine="0",model_name="mock-7b"}} {t * 500}.0
-# TYPE vllm:spec_decode_num_accepted_tokens_total counter
-vllm:spec_decode_num_accepted_tokens_total{{engine="0",model_name="mock-7b"}} {t * 210}.0
-# TYPE vllm:estimated_flops_per_gpu_total counter
-vllm:estimated_flops_per_gpu_total{{engine="0",model_name="mock-7b"}} 0.0
-{ttft_buckets}
-{tpot_buckets}
-"""
+        e = _E
+        src = "vllm:prompt_tokens_by_source_total"
+        cc = (
+            "vllm:cache_config_info{"
+            'block_size="16",cache_dtype="fp8_e4m3",'
+            'num_gpu_blocks="20000",enable_prefix_caching="True",engine="0"'
+            "} 1.0"
+        )
+        return (
+            f"# TYPE vllm:num_requests_running gauge\n"
+            f"vllm:num_requests_running{{{e}}} {running}.0\n"
+            f"# TYPE vllm:num_requests_waiting gauge\n"
+            f"vllm:num_requests_waiting{{{e}}} {waiting}.0\n"
+            f"# TYPE vllm:num_preemptions_total counter\n"
+            f"vllm:num_preemptions_total{{{e}}} 0.0\n"
+            f"# TYPE vllm:generation_tokens_total counter\n"
+            f"vllm:generation_tokens_total{{{e}}} {self._gen:.1f}\n"
+            f"# TYPE vllm:prompt_tokens_total counter\n"
+            f"vllm:prompt_tokens_total{{{e}}} {self._prompt:.1f}\n"
+            f"# TYPE vllm:request_success_total counter\n"
+            f"vllm:request_success_total{{{e}}} {t * 4}.0\n"
+            f"# TYPE vllm:prefix_cache_queries_total counter\n"
+            f"vllm:prefix_cache_queries_total{{{e}}} {self._q:.1f}\n"
+            f"# TYPE vllm:prefix_cache_hits_total counter\n"
+            f"vllm:prefix_cache_hits_total{{{e}}} {self._h:.1f}\n"
+            f"# TYPE vllm:prompt_tokens_cached_total counter\n"
+            f"vllm:prompt_tokens_cached_total{{{e}}} {self._h:.1f}\n"
+            f"# TYPE vllm:prompt_tokens_recomputed_total counter\n"
+            f"vllm:prompt_tokens_recomputed_total{{{e}}} 12.0\n"
+            f"# TYPE vllm:prompt_tokens_by_source_total counter\n"
+            f'{src}{{{e},source="local_compute"}} {self._prompt * 0.7:.1f}\n'
+            f'{src}{{{e},source="local_cache_hit"}} {self._prompt * 0.3:.1f}\n'
+            f'{src}{{{e},source="external_kv_transfer"}} 0.0\n'
+            f"# TYPE vllm:kv_cache_usage_perc gauge\n"
+            f"vllm:kv_cache_usage_perc{{{e}}} {kv:.4f}\n"
+            f"# TYPE vllm:cache_config_info gauge\n"
+            f"{cc}\n"
+            f"# TYPE vllm:iteration_tokens_total histogram\n"
+            f"vllm:iteration_tokens_total_sum{{{e}}} {t * 1024}.0\n"
+            f"vllm:iteration_tokens_total_count{{{e}}} {t}.0\n"
+            f"# TYPE vllm:spec_decode_num_drafts_total counter\n"
+            f"vllm:spec_decode_num_drafts_total{{{e}}} {t * 100}.0\n"
+            f"# TYPE vllm:spec_decode_num_draft_tokens_total counter\n"
+            f"vllm:spec_decode_num_draft_tokens_total{{{e}}} {t * 500}.0\n"
+            f"# TYPE vllm:spec_decode_num_accepted_tokens_total counter\n"
+            f"vllm:spec_decode_num_accepted_tokens_total{{{e}}} {t * 210}.0\n"
+            f"# TYPE vllm:estimated_flops_per_gpu_total counter\n"
+            f"vllm:estimated_flops_per_gpu_total{{{e}}} 0.0\n"
+            f"{ttft_buckets}\n"
+            f"{tpot_buckets}\n"
+        )
 
     def _hist(self, name: str, *, base_le: float = 0.05, n: int = 1, **kw) -> str:
         base_le = kw.get("base", base_le)

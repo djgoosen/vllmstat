@@ -76,10 +76,19 @@ Scraped over HTTP. Names are the `vllm:` family. Labels seen:
 - **Throughput:** `generation_tokens_total`, `prompt_tokens_total` (counters);
   `iteration_tokens_total` (histogram, tokens/engine-step);
   `request_success_total` (counter).
-- **Cache:** `prefix_cache_queries_total`, `prefix_cache_hits_total`,
-  `kv_cache_usage_perc` (gauge 0–1), `prompt_tokens_cached_total`,
-  `prompt_tokens_recomputed_total`. Also present (used if non-zero):
-  `external_prefix_cache_{queries,hits}_total`, `mm_cache_{queries,hits}_total`.
+- **Cache (reuse / overlapping KV):** `prefix_cache_queries_total`,
+  `prefix_cache_hits_total`, `prompt_tokens_cached_total`,
+  `prompt_tokens_recomputed_total`, and
+  `prompt_tokens_by_source_total{source=…}` with sources `local_compute`,
+  `local_cache_hit`, `external_kv_transfer` — the clearest token-level view of
+  the overlapping-KV (prefix-sharing) benefit. Cross-instance:
+  `external_prefix_cache_{queries,hits}_total` (0 on test server); multimodal:
+  `mm_cache_{queries,hits}_total`.
+- **KV memory (capacity / compression):** `kv_cache_usage_perc` (gauge 0–1) plus
+  `cache_config_info` labels: `cache_dtype` (e.g. `turboquant_k3v4_nc`),
+  `num_gpu_blocks` (6947 on test server), `block_size` (64),
+  `kv_cache_memory_bytes` (`None` here), `enable_prefix_caching`,
+  `prefix_caching_hash_algo`, `kv_offloading_backend`, `sliding_window`.
 - **Latency (histograms):** `time_to_first_token_seconds` (TTFT),
   `inter_token_latency_seconds` (ITL), `request_time_per_output_token_seconds`
   (TPOT), `e2e_request_latency_seconds`, `request_queue_time_seconds`,
@@ -95,7 +104,9 @@ Scraped over HTTP. Names are the `vllm:` family. Labels seen:
   itself when inputs are zero.
 - **Config / info:** `cache_config_info` (labels carry block size, cache dtype,
   prefix-caching flag, gpu mem util, etc.); `engine_sleep_state`.
-- Also one-time `GET /v1/models` for served model id(s) and `max_model_len`.
+- Also one-time `GET /v1/models` for served model id(s), `max_model_len`, and the
+  model `root` path; when that path is locally readable, its `config.json`
+  supplies KV dims (layers / kv-heads / head-dim) for the memory math.
 
 ### 5.2 GPU hardware (NVML)
 
@@ -134,6 +145,9 @@ providers; all derivation is pure and unit-tested; the UI only renders state.
    - `histogram.py` — quantiles from cumulative buckets (windowed).
    - `rates.py` — counter→rate with EWMA smoothing and reset detection.
    - `history.py` — fixed-size ring buffers per series (sparklines).
+   - `kv.py` — KV-memory capacity, dtype parsing, compression ratio
+     (achieved/nominal), and token-source split; reads the served model's
+     `config.json` when locally available.
    - `gpu_specs.py` — optional peak-FLOPs lookup for MFU (best-effort).
 3. **UI** (Textual): `VllmTopApp` runs a timer (default 1 s), awaits both
    providers concurrently, folds results into `AppState`, and reactive widgets
@@ -150,7 +164,7 @@ vllmtop/
     __init__.py  __main__.py
     cli.py  config.py  app.py  state.py
     providers/ base.py vllm.py gpu.py mock.py
-    core/ parse.py metrics.py histogram.py rates.py history.py gpu_specs.py
+    core/ parse.py metrics.py histogram.py rates.py history.py kv.py gpu_specs.py
     widgets/ header.py concurrency.py throughput.py cache.py latency.py
              specdecode.py gpu.py footer.py
   tests/
@@ -172,10 +186,21 @@ vllmtop/
 - **Counter rate:** `rate = (c_t − c_{t−1}) / dt`, then EWMA smoothing
   (α ≈ 0.3). If `c_t < c_{t−1}` (server restart), rebaseline and skip one tick.
   Applies to: gen tok/s, prompt tok/s, req/s, preempt/s, cache queries/s.
-- **Prefix-cache hit rate:** lifetime `= hits_total / queries_total`;
-  windowed `= Δhits / Δqueries` over the sample window. KV usage `=
-  kv_cache_usage_perc × 100`. Cached fraction `= prompt_tokens_cached_total /
-  prompt_tokens_total`.
+- **Prefix-cache hit rate (reuse):** lifetime `= hits_total / queries_total`;
+  windowed `= Δhits / Δqueries` over the sample window. Cached fraction `=
+  prompt_tokens_cached_total / prompt_tokens_total`. Token-source split from
+  `prompt_tokens_by_source_total` (compute vs local-cache-hit vs
+  external-KV-transfer) — this is the headline "overlapping-KV" view.
+- **KV memory & compression:** effective capacity `= num_gpu_blocks ×
+  block_size` tokens; current tokens `= capacity × kv_cache_usage_perc`. fp16
+  bytes/token `= 2 × num_layers × num_kv_heads × head_dim × 2` (dims from the
+  served model's `config.json` when locally readable). Compression ratio:
+  **achieved** `= (capacity × fp16_bytes_per_token) / kv_cache_memory_bytes` when
+  that field is populated; otherwise **nominal** parsed from the dtype name
+  (`…kNvM…` → `32 / (N + M)`; `fp8`/`int8` → 4×; `fp16`/`bf16`/`auto` → 1×),
+  shown with a `~` and an "approx" tag. fp16-equivalent capacity `= capacity /
+  ratio`. Compression and caching are orthogonal axes (shrink vs reuse) and are
+  shown as distinct readouts in the same panel.
 - **Latency percentiles (p50/p90/p99):** from cumulative histogram buckets,
   windowed via per-bucket deltas (`bucket_t − bucket_{t−1}`); locate the bucket
   where the cumulative fraction crosses the target quantile and linearly
@@ -205,16 +230,16 @@ vllmtop/
 ```
 ┌ vllmtop ─ qwen3-30b-tq @ localhost:8000 ─ engine 0 ─ ● connected ─ up 3h12m ─ 1.0s ─ 14:22:07 ┐
                                                                                                   
- CONCURRENCY                THROUGHPUT                       CACHE                                 
-  running  2  ▕▂▃▅▇▆▃▂▏      gen    142 tok/s ▕▃▅▇▆▇█▆▏       prefix hit 38.1% ▕▅▆▆▇▆▇▏ life 31.5%  
-  waiting  0  ▕▁▁▂▁▁▁▁▏      prompt 318 tok/s ▕▂▇▃▅▂▆▃▏       KV usage   11.2% ▕▂▃▃▄▃▂▏             
-  preempt 0/s                tok/iter 1024 · 4.1 req/s        cached 5.7M · recomputed 688         
+ CONCURRENCY                 THROUGHPUT                      LATENCY (recent)   p50    p90    p99  
+  running  1  ▕▂▃▅▇▆▃▂▏       gen    142 tok/s ▕▃▅▇▆▇█▆▏       TTFT             73ms  180ms  520ms 
+  waiting  0  ▕▁▁▂▁▁▁▁▏       prompt 318 tok/s ▕▂▇▃▅▂▆▃▏       TPOT            9.1ms   14ms   28ms 
+  preempt 0/s  max-seqs 1     tok/iter 1024 · 4.1 req/s        e2e             1.8s   6.2s    22s  
+                                                               queue            0ms    2ms   40ms 
+ CACHE & KV MEMORY                                                                                 
+  reuse   prefix hit 38.1% ▕▅▆▆▇▆▇▏ life 31.5%   sources compute 69% · cache-hit 31% · ext 0%     
+  memory  KV usage 0.09% ▕▁▁▁▁▁▁▏ (0.4k/445k tok)   turboquant_k3v4_nc  ~4.6x vs fp16 (=43.7GB)   
                                                                                                   
- LATENCY (recent)        p50      p90      p99               SPEC DECODE (suffix)                  
-  TTFT                   73 ms    180 ms   520 ms             acceptance    39.8% ▕▅▆▇▆▇▆▏          
-  TPOT                   9.1 ms   14 ms    28 ms              accepted/draft 2.16                  
-  e2e                    1.8 s    6.2 s    22 s               pos1 78% pos2 41% pos3 19% pos4 …     
-  queue                  0 ms     2 ms     40 ms                                                   
+ SPEC DECODE (suffix)   acceptance 39.8% ▕▅▆▇▆▇▆▏   accepted/draft 2.16   pos1 78% pos2 41% …      
                                                                                                   
  GPU 0  NVIDIA <name>                              81%   23.1/24.0 GB (96%)   61°C   142/200 W     
         sm  ▕███████████████░░░░▏ 81%   mem ▕██████████████████░▏ 96%   clk 2520/9501 MHz  fan 45% 
@@ -230,8 +255,13 @@ vllmtop/
 - **Concurrency:** running / waiting (value + sparkline) · preemptions/s.
 - **Throughput:** generation tok/s + prompt tok/s (value + sparkline) ·
   tokens/iteration · successful req/s.
-- **Cache:** prefix-cache hit % (windowed + lifetime, sparkline) · KV-cache
-  usage % (gauge) · cached vs recomputed prompt tokens.
+- **Cache & KV memory:** *Reuse* — prefix-hit % (windowed + lifetime, sparkline)
+  and the token-source split (compute / local-cache-hit / external-KV). *Memory*
+  — KV dtype + effective capacity (tokens) + current usage (tokens & %) +
+  compression ratio (achieved when `kv_cache_memory_bytes` is known, else
+  ~nominal from the dtype). The external-KV line appears only when cross-instance
+  transfer is active. (Reuse vs compression are orthogonal: avoid-recompute vs
+  shrink-per-token.)
 - **Latency:** TTFT, TPOT, e2e, queue — p50/p90/p99 (windowed).
 - **Spec decode** (conditional): acceptance, accepted/draft, per-position bars.
 - **GPU(s):** per GPU — name · util % (sparkline) · mem used/total % (sparkline)
@@ -327,3 +357,8 @@ re-export · alerting · any server-control actions.
 - **Histogram bucket coverage:** windowed quantiles assume buckets don't change
   between scrapes; bucket-set changes (rare, config-dependent) trigger a
   rebaseline.
+- **Compression ratio:** the nominal ratio parsed from the dtype name ignores
+  quantization overhead (scales/groups), so it is labeled approximate; the
+  achieved ratio is shown instead when `kv_cache_memory_bytes` is populated.
+  Absolute GB figures need the served model's `config.json` to be locally
+  readable — remote monitoring falls back to nominal ratio + token capacity.

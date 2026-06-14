@@ -14,28 +14,32 @@ from vllmtop.snapshot_json import snapshot_to_dict
 
 def run_once_json(argv: list[str]) -> int:
     cfg = Config.from_sources(argv, dict(os.environ))
-    eng = MetricsEngine(dims=None, max_model_len=None)
     if cfg.mock:
+        eng = MetricsEngine(dims=None, max_model_len=None)
         mp = MockProvider()
         eng.derive(parse_metrics(mp.metrics_text()), now=0.0)
         snap = eng.derive(parse_metrics(mp.metrics_text()), now=1.0)
     else:
         import asyncio
 
+        from vllmtop.model_dims import load_model_dims
         from vllmtop.providers.vllm import VllmProvider
 
         async def _go():
             p = VllmProvider(base_url=cfg.url, metrics_path=cfg.metrics_path, api_key=cfg.api_key)
+            info = await p.fetch_model_info()
             r0 = await p.fetch_metrics()
             time.sleep(min(cfg.interval, 1.0))
             r1 = await p.fetch_metrics()
             await p.aclose()
-            return r0, r1
+            return info, r0, r1
 
-        r0, r1 = asyncio.run(_go())
+        info, r0, r1 = asyncio.run(_go())
         if not r1.fetched_ok:
             print(json.dumps({"error": r1.error}), file=sys.stderr)
             return 1
+        md = load_model_dims(info.root, info.max_model_len)
+        eng = MetricsEngine(dims=md.dims, max_model_len=md.max_model_len)
         eng.derive(parse_metrics(r0.text), now=0.0)
         snap = eng.derive(parse_metrics(r1.text), now=1.0)
     print(json.dumps(snapshot_to_dict(snap), default=str))

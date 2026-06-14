@@ -180,9 +180,38 @@ def test_gpu_panel_intel_style_sample_shows_name_temp_and_hint():
     assert "2800" in text  # clock shown
     assert "1060" in text and "rpm" in text.lower()  # fan as RPM
     assert "—" in text  # util / VRAM shown as em dash
-    # both util and VRAM missing (no root) -> the root hint is appended
-    assert "need root" in text.lower()
+    # both util and VRAM missing -> generic GPU-stats hint pointing at the README
+    assert "gpu stats" in text.lower()
     assert "readme" in text.lower()
+
+
+def test_gpu_panel_intel_util_present_vram_none_shows_vram_hint():
+    # gtidle gives util without root; VRAM still root-gated -> only flag VRAM.
+    s = _snap(
+        gpu=GpuSnapshot(
+            available=True,
+            source="intel-sysfs",
+            gpus=[
+                GpuSample(
+                    index=0,
+                    name="Intel Arc B-series (Battlemage)",
+                    vendor="intel",
+                    util_gpu=70.0,
+                    mem_used=None,
+                    mem_total=None,
+                    temp_c=57.0,
+                    power_w=116.0,
+                    power_limit_w=275.0,
+                    fan_rpm=1060,
+                    clock_sm_mhz=2800,
+                )
+            ],
+        )
+    )
+    text = render.gpu(s)
+    assert "70" in text  # util present (gtidle, non-root)
+    assert "vram needs root" in text.lower()  # only VRAM flagged
+    assert "gpu stats" not in text.lower()  # not the both-missing hint
 
 
 def test_gpu_panel_intel_with_fdinfo_util_vram_no_hint():

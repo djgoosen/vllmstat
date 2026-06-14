@@ -142,7 +142,13 @@ def gpu(s: Snapshot) -> str:
             sm = g.clock_sm_mhz if g.clock_sm_mhz is not None else "—"
             mem = g.clock_mem_mhz if g.clock_mem_mhz is not None else "—"
             parts.append(f"  clk {sm}/{mem} MHz")
+        # Hints: util now usually comes from gtidle (non-root), so only flag
+        # what's actually missing. VRAM stays root-gated on Intel; if it's the
+        # only thing absent, point at that. If nothing reads at all, send the
+        # user to the README's GPU-stats section.
         if g.util_gpu is None and g.mem_used is None:
-            parts.append("  (util/VRAM need root — see README)")
+            parts.append("  (GPU stats: see README)")
+        elif g.vendor == "intel" and g.mem_used is None:
+            parts.append("  (VRAM needs root)")
         lines.append("".join(parts))
     return "\n".join(lines)

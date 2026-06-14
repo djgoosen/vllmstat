@@ -103,9 +103,48 @@ vllmstat --once --json
 |--------|-----------|--------------|
 | **NVIDIA** | Full: util %, VRAM used/total, temperature, power draw/limit, SM & memory clocks, fan %. | NVIDIA driver. The bundled `nvidia-ml-py` uses NVML; `nvidia-smi` on `PATH` is used as a fallback. |
 | **AMD** | Full: util %, VRAM used/total, temperature, power draw/limit, fan RPM, clock — via the `amdgpu` kernel driver's sysfs. | `amdgpu` kernel driver (in-tree on modern Linux). Install ROCm's `amd-smi` (or `rocm-smi`) for richer data; it's used automatically when on `PATH`. |
-| **Intel** | Temperature, power draw/limit, clock, and fan RPM out of the box via the `xe`/`i915` sysfs. **util % and VRAM used** via DRM `fdinfo` — see the note below for the root requirement. | `xe` or `i915` kernel driver. No extra tools needed; **root** (or read access to the GPU processes' `/proc/<pid>/fdinfo`) is required for util %/VRAM. |
+| **Intel** | Utilisation %, temperature, power draw/limit, clock, and fan RPM out of the box via the `xe`/`i915` sysfs — **no root**. **VRAM used** via DRM `fdinfo` — see the note below for the root requirement. | `xe` or `i915` kernel driver. No extra tools needed; util/temp/power/clock/fan work as a normal user. **Root** (or matching UID) is only needed for VRAM. |
 
-**Intel util % / VRAM (DRM `fdinfo`):** the `xe` driver exposes no `gpu_busy_percent` and no `mem_info_vram_*` in sysfs, so `vllmstat` reads real utilisation and VRAM the same way `nvtop` does — by aggregating per-client GPU accounting from `/proc/<pid>/fdinfo/<fd>`. It sums each client's busy `drm-cycles-<engine>` against the engine's elapsed-cycle counter (compute/`ccs` dominates for vLLM) for util %, and sums each client's `drm-resident-vram0` for VRAM used. **This requires permission to read the GPU processes' `fdinfo`:** run `vllmstat` as root, or as the user that owns the vLLM workers, or relax `kernel.yama.ptrace_scope`. Without that access the rows are unreadable and the panel shows `—` with a `(util/VRAM need root — see README)` hint. Total VRAM capacity isn't reliably exposed on `xe` yet, so VRAM is shown as `used/—`. Utilisation needs two refreshes to produce its first delta. Intel power is derived from the `energy1_input` counter, so it likewise appears one refresh after the panel opens.
+**Intel utilisation (no root):** the `xe` driver exposes no `gpu_busy_percent`, but it does expose a world-readable, cumulative GT-idle counter at `…/device/tile*/gt*/gtidle/idle_residency_ms`. `vllmstat` reads it each refresh and derives util % as `100 × (1 − Δidle_ms / Δwall_ms)`, taking the busiest GT (a card can have a render/compute `gt0` and a media `gt1`). No root, no extra tools. Utilisation needs two refreshes to produce its first delta; Intel power is derived from the `energy1_input` counter, so it likewise appears one refresh after the panel opens.
+
+**Intel VRAM (DRM `fdinfo`, root-gated):** the `xe` driver exposes no `mem_info_vram_*` in sysfs, so `vllmstat` reads VRAM the way `nvtop` does — by summing each GPU client's `drm-resident-vram0` from `/proc/<pid>/fdinfo/<fd>`. Reading another process's `fdinfo` requires a matching UID or root, so VRAM appears only when `vllmstat` can read the vLLM worker processes (see **Getting GPU stats** below). Without that access VRAM shows `—` with a `(VRAM needs root)` hint; total VRAM capacity isn't reliably exposed on `xe` yet, so VRAM is shown as `used/—`.
+
+---
+
+## Getting GPU stats
+
+The GPU panel works with no configuration on all three vendors — but each vendor sources its data differently, and one case (Intel VRAM) can need elevated permissions. Here's how to get the full set.
+
+### NVIDIA
+
+Install the NVIDIA driver. Utilisation, VRAM used/total, temperature, power draw/limit, and SM/memory clocks all come from NVML via the bundled `nvidia-ml-py`; if NVML isn't importable, `vllmstat` falls back to `nvidia-smi` on your `PATH`. No root required.
+
+### AMD
+
+The in-tree `amdgpu` kernel driver (present on modern Linux) exposes utilisation, VRAM used/total, temperature, power, and fan via sysfs out of the box — no root, no extra tools. For richer data, install ROCm's `amd-smi` (or the older `rocm-smi`); `vllmstat` uses whichever is on your `PATH` automatically.
+
+### Intel (Arc / `xe` or `i915`)
+
+**Utilisation, temperature, power, clocks, and fan work out of the box, no root** — they come from world-readable sysfs (utilisation from the GT idle-residency counter; see [GPU support](#gpu-support) above for details).
+
+**VRAM** is the one exception. It's read per-process from DRM `fdinfo`, so it only appears when `vllmstat` can read the GPU process. If your vLLM runs as **root** (e.g. inside Docker) while you run `vllmstat` as a normal user, VRAM shows `—` with a `(VRAM needs root)` hint. To get VRAM, either:
+
+- **Run `vllmstat` as the same user as vLLM** (simplest if you launched vLLM yourself), or
+- **Run `vllmstat` as root** to match a root-owned vLLM:
+
+  ```bash
+  sudo $(which vllmstat)
+  # for a pipx install:
+  sudo ~/.local/bin/vllmstat
+  ```
+
+> Note: `kernel.yama.ptrace_scope` does **not** help here. Reading another user's `fdinfo` is blocked by a cross-UID `ptrace_may_access` check that requires a matching UID or root — relaxing `ptrace_scope` does not change it.
+
+### Keeping vllmstat current
+
+```bash
+pipx upgrade vllmstat
+```
 
 ---
 

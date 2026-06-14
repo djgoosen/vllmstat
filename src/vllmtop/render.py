@@ -8,7 +8,8 @@ from vllmtop.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
 def header(s: Snapshot, *, url: str, interval: float, uptime: str) -> str:
     state = "● connected" if s.connected else "● down"
     models = ",".join(s.model_names) or "—"
-    return f"vllmtop  {models} @ {url}  engines {s.engine_count}  {state}  up {uptime}  {interval:.1f}s"
+    parts = f"vllmtop  {models} @ {url}  engines {s.engine_count}"
+    return f"{parts}  {state}  up {uptime}  {interval:.1f}s"
 
 
 def concurrency(s: Snapshot, h: History) -> str:
@@ -64,8 +65,13 @@ def _q(label: str, q) -> str:
 def latency(s: Snapshot) -> str:
     return (
         "LATENCY (recent)   p50     p90     p99\n"
-        + _q("TTFT", s.ttft) + "\n" + _q("TPOT", s.tpot) + "\n"
-        + _q("e2e", s.e2e) + "\n" + _q("queue", s.queue)
+        + _q("TTFT", s.ttft)
+        + "\n"
+        + _q("TPOT", s.tpot)
+        + "\n"
+        + _q("e2e", s.e2e)
+        + "\n"
+        + _q("queue", s.queue)
     )
 
 

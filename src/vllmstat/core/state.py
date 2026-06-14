@@ -15,13 +15,15 @@ class Quantiles:
 class GpuSample:
     index: int
     name: str
+    vendor: str = ""  # "nvidia" | "amd" | "intel" | "other"
     util_gpu: float | None = None  # percent 0-100
     mem_used: int | None = None  # bytes
     mem_total: int | None = None  # bytes
     temp_c: float | None = None
     power_w: float | None = None
     power_limit_w: float | None = None
-    fan_pct: float | None = None
+    fan_pct: float | None = None  # NVIDIA reports fan as a percentage
+    fan_rpm: int | None = None  # AMD/Intel hwmon report fan as RPM
     clock_sm_mhz: int | None = None
     clock_mem_mhz: int | None = None
 

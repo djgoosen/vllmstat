@@ -1,4 +1,4 @@
-from vllmstat.core.state import GpuSnapshot, Quantiles, Snapshot
+from vllmstat.core.state import GpuSample, GpuSnapshot, Quantiles, Snapshot
 
 
 def test_quantiles_defaults_none():
@@ -18,3 +18,16 @@ def test_snapshot_minimal_construction():
     assert s.running == 0.0
     assert s.spec_active is False
     assert s.gpu.available is False
+
+
+def test_gpu_sample_vendor_and_fan_rpm_defaults():
+    g = GpuSample(index=0, name="GPU")
+    assert g.vendor == ""
+    assert g.fan_rpm is None
+    assert g.fan_pct is None
+
+
+def test_gpu_sample_accepts_vendor_and_fan_rpm():
+    g = GpuSample(index=1, name="Intel Arc", vendor="intel", fan_rpm=1060)
+    assert g.vendor == "intel"
+    assert g.fan_rpm == 1060

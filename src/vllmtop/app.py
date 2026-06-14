@@ -54,6 +54,7 @@ class VllmTopApp(App):
         self._start = time.monotonic()
         self._tick_n = 0
         self._timer: Timer | None = None
+        self._in_tick = False
 
     def compose(self) -> ComposeResult:
         self.p_header = Panel(id="hdr")
@@ -61,6 +62,7 @@ class VllmTopApp(App):
         self.p_tput = Panel(id="tput")
         self.p_lat = Panel(id="lat")
         self.p_cache = Panel(id="cache")
+        self.p_eff = Panel(id="eff")
         self.p_spec = Panel(id="spec")
         self.p_gpu = Panel(id="gpu")
         yield self.p_header
@@ -69,6 +71,7 @@ class VllmTopApp(App):
             yield self.p_tput
             yield self.p_lat
         yield self.p_cache
+        yield self.p_eff
         yield self.p_spec
         yield self.p_gpu
         yield Footer()
@@ -95,8 +98,15 @@ class VllmTopApp(App):
         return raw.text, raw.fetched_ok, raw.error
 
     async def tick(self) -> None:
-        if self.paused:
+        if self.paused or self._in_tick:
             return
+        self._in_tick = True
+        try:
+            await self._tick_body()
+        finally:
+            self._in_tick = False
+
+    async def _tick_body(self) -> None:
         await self._ensure_dims()
         self._tick_n += 1
         text, ok, err = await self._sample_text()
@@ -138,6 +148,9 @@ class VllmTopApp(App):
         self.p_tput.update(render.throughput(s, self._history))
         self.p_lat.update(render.latency(s))
         self.p_cache.update(render.cache_kv(s, self._history))
+        eff = render.efficiency(s)
+        self.p_eff.display = bool(eff)
+        self.p_eff.update(eff)
         spec = render.specdecode(s)
         self.p_spec.display = bool(spec)
         self.p_spec.update(spec)

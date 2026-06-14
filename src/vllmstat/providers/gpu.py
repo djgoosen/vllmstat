@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 
-from vllmtop.core.state import GpuSample, GpuSnapshot
+from vllmstat.core.state import GpuSample, GpuSnapshot
 
 _SMI_QUERY = (
     "index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,"

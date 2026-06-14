@@ -1,4 +1,4 @@
-from vllmtop.config import Config
+from vllmstat.config import Config
 
 
 def test_defaults():

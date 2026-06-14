@@ -1,4 +1,4 @@
-from vllmtop.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
+from vllmstat.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
 
 
 def test_sparkline_basic():

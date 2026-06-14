@@ -1,7 +1,7 @@
 import pytest
 
-from vllmtop.app import VllmTopApp
-from vllmtop.config import Config
+from vllmstat.app import VllmStatApp
+from vllmstat.config import Config
 
 
 class FlakyVllm:
@@ -11,7 +11,7 @@ class FlakyVllm:
         self.calls = 0
 
     async def fetch_metrics(self):
-        from vllmtop.providers.vllm import RawText
+        from vllmstat.providers.vllm import RawText
 
         self.calls += 1
         if self.calls == 1:
@@ -23,7 +23,7 @@ class FlakyVllm:
         return RawText(text="", fetched_ok=False, error="connection refused")
 
     async def fetch_model_info(self):
-        from vllmtop.providers.vllm import ModelInfo
+        from vllmstat.providers.vllm import ModelInfo
 
         return ModelInfo(model_names=["m"], max_model_len=None, root=None)
 
@@ -33,7 +33,7 @@ class FlakyVllm:
 @pytest.mark.asyncio
 async def test_disconnect_marks_not_connected_but_keeps_running():
     cfg = Config(mock=False, interval=0.05, gpu=False)
-    app = VllmTopApp(cfg)
+    app = VllmStatApp(cfg)
     app._vllm = FlakyVllm()  # type: ignore[assignment]
     app._mock = None
     async with app.run_test() as pilot:

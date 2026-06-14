@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Smoke script: render vllmtop in mock mode and save an SVG screenshot.
+"""Smoke script: render vllmstat in mock mode and save an SVG screenshot.
 
 Usage: python scripts/smoke_live.py
 Output: docs/screenshot.svg
@@ -14,15 +14,15 @@ from pathlib import Path
 # Ensure the package is importable when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from vllmtop.app import VllmTopApp
-from vllmtop.config import Config
+from vllmstat.app import VllmStatApp
+from vllmstat.config import Config
 
 OUTPUT = Path(__file__).parent.parent / "docs" / "screenshot.svg"
 
 
 async def main() -> None:
     cfg = Config(mock=True, gpu=True, interval=0.2)
-    app = VllmTopApp(cfg)
+    app = VllmStatApp(cfg)
     async with app.run_test(size=(120, 32)) as pilot:
         # Several ticks so sparklines fill and GPUs animate.
         await pilot.pause(1.0)
@@ -37,8 +37,8 @@ async def main() -> None:
     import html
 
     decoded = html.unescape(svg)
-    required = ["vllmtop", "CACHE\xa0&\xa0KV\xa0MEMORY", "GPU\xa00"]
-    labels = ["vllmtop", "CACHE & KV MEMORY", "GPU 0"]
+    required = ["vllmstat", "CACHE\xa0&\xa0KV\xa0MEMORY", "GPU\xa00"]
+    labels = ["vllmstat", "CACHE & KV MEMORY", "GPU 0"]
     ok = True
     for needle, label in zip(required, labels, strict=True):
         found = needle in decoded

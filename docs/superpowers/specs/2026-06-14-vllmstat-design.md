@@ -1,14 +1,14 @@
-# vllmtop — Design Spec
+# vllmstat — Design Spec
 
 - **Status:** Design approved; pre-implementation
 - **Date:** 2026-06-14
 - **Author:** Bryan Vine (bryan@bryanvine.com)
-- **Planned repo:** `github.com/bryanvine/vllmtop` (public)
+- **Planned repo:** `github.com/bryanvine/vllmstat` (public)
 - **License:** Apache-2.0
 
 ## 1. Summary
 
-`vllmtop` is a single-command, zero-infra terminal dashboard for a live vLLM
+`vllmstat` is a single-command, zero-infra terminal dashboard for a live vLLM
 server — `nvtop`, but for vLLM serving performance. It is a full-screen,
 interactive [Textual](https://textual.textualize.io/) TUI that unifies **vLLM
 serving telemetry** (scraped from the Prometheus `/metrics` endpoint) with
@@ -23,7 +23,7 @@ speculative-decoding acceptance, and per-GPU utilization/memory/temp/power/clock
 ## 2. Goals / Non-goals
 
 **Goals**
-- One command, no infrastructure: `pip install vllmtop && vllmtop`.
+- One command, no infrastructure: `pip install vllmstat && vllmstat`.
 - Make a separate `nvtop` unnecessary for the common case (headline per-GPU stats).
 - Surface the vLLM-specific signals that `nvtop` and generic GPU tools cannot:
   concurrency/queueing, throughput, cache effectiveness, latency percentiles,
@@ -49,7 +49,7 @@ speculative-decoding acceptance, and per-GPU utilization/memory/temp/power/clock
   full-screen TUI, has no GPU-hardware monitoring, no sparklines, no latency
   percentiles, and no speculative-decode analytics.
 - **Gap:** no interactive, zero-infra, `nvtop`-class TUI exists for vLLM. That
-  gap is what `vllmtop` fills. (The name `vllm-top` is taken; we use `vllmtop`,
+  gap is what `vllmstat` fills. (The name `vllm-top` is taken; we use `vllmstat`,
   matching the `htop`/`btop`/`nvtop` convention.)
 
 ## 4. Decisions (locked)
@@ -59,7 +59,7 @@ speculative-decoding acceptance, and per-GPU utilization/memory/temp/power/clock
 | Language / framework | Python + Textual |
 | Scope | Single endpoint; multi-GPU / multi-model / multi-engine aware; fleet-ready architecture |
 | GPU depth | Per-GPU summary (util/mem/temp/power/fan/clocks). No per-process table. |
-| Name | `vllmtop` (repo + PyPI package + command); import package `vllmtop` |
+| Name | `vllmstat` (repo + PyPI package + command); import package `vllmstat` |
 | License | Apache-2.0 |
 | Interaction model | Read-only |
 | Default target | `http://localhost:8000`, metrics path `/metrics`, refresh 1.0 s |
@@ -149,18 +149,18 @@ providers; all derivation is pure and unit-tested; the UI only renders state.
      (achieved/nominal), and token-source split; reads the served model's
      `config.json` when locally available.
    - `gpu_specs.py` — optional peak-FLOPs lookup for MFU (best-effort).
-3. **UI** (Textual): `VllmTopApp` runs a timer (default 1 s), awaits both
+3. **UI** (Textual): `VllmStatApp` runs a timer (default 1 s), awaits both
    providers concurrently, folds results into `AppState`, and reactive widgets
    re-render. One widget per panel.
 
 ### 6.2 Repo layout
 
 ```
-vllmtop/
-  pyproject.toml          # hatchling; deps; console_scripts: vllmtop = vllmtop.cli:main
+vllmstat/
+  pyproject.toml          # hatchling; deps; console_scripts: vllmstat = vllmstat.cli:main
   README.md  LICENSE  CONTRIBUTING.md  .gitignore
   .github/workflows/ci.yml   # ruff + pyright + pytest (matrix py3.10–3.13)
-  src/vllmtop/
+  src/vllmstat/
     __init__.py  __main__.py
     cli.py  config.py  app.py  state.py
     providers/ base.py vllm.py gpu.py mock.py
@@ -228,7 +228,7 @@ vllmtop/
 ### 8.1 Layout (illustrative, with test-server data)
 
 ```
-┌ vllmtop ─ qwen3-30b-tq @ localhost:8000 ─ engine 0 ─ ● connected ─ up 3h12m ─ 1.0s ─ 14:22:07 ┐
+┌ vllmstat ─ qwen3-30b-tq @ localhost:8000 ─ engine 0 ─ ● connected ─ up 3h12m ─ 1.0s ─ 14:22:07 ┐
                                                                                                   
  CONCURRENCY                 THROUGHPUT                      LATENCY (recent)   p50    p90    p99  
   running  1  ▕▂▃▅▇▆▃▂▏       gen    142 tok/s ▕▃▅▇▆▇█▆▏       TTFT             73ms  180ms  520ms 
@@ -279,7 +279,7 @@ optional (Textual default).
 ## 9. CLI & configuration
 
 ```
-vllmtop [OPTIONS]
+vllmstat [OPTIONS]
   -u, --url URL            base URL (default http://localhost:8000)
       --metrics-path PATH  default /metrics
   -i, --interval SECONDS   refresh interval (default 1.0)
@@ -290,7 +290,7 @@ vllmtop [OPTIONS]
       --version
 ```
 
-Precedence: CLI flags > env vars > `~/.config/vllmtop/config.toml` > defaults.
+Precedence: CLI flags > env vars > `~/.config/vllmstat/config.toml` > defaults.
 
 ## 10. Resilience & graceful degradation
 
@@ -323,12 +323,12 @@ Precedence: CLI flags > env vars > `~/.config/vllmtop/config.toml` > defaults.
 ## 12. Packaging & distribution
 
 - `src/`-layout package, `pyproject.toml` via hatchling, console entry
-  `vllmtop = vllmtop.cli:main`, and `python -m vllmtop`.
+  `vllmstat = vllmstat.cli:main`, and `python -m vllmstat`.
 - Runtime deps: `textual`, `httpx`, `prometheus-client` (text parser),
   `nvidia-ml-py` (import-guarded; absence is handled).
 - Python ≥ 3.10.
 - README with `--mock`-generated screenshots; Apache-2.0 `LICENSE`;
-  `CONTRIBUTING.md`. Public repo `github.com/bryanvine/vllmtop`.
+  `CONTRIBUTING.md`. Public repo `github.com/bryanvine/vllmstat`.
 
 ## 13. Milestones (high-level; detailed by the implementation plan)
 

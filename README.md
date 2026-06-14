@@ -1,37 +1,37 @@
-# vllmtop
+# vllmstat
 
 **`nvtop` for vLLM** — a zero-infrastructure interactive terminal dashboard for vLLM serving performance.
 
-![vllmtop](https://raw.githubusercontent.com/bryanvine/vllmtop/main/docs/screenshot.png)
+![vllmstat](https://raw.githubusercontent.com/bryanvine/vllmstat/main/docs/screenshot.png)
 
 ---
 
-## Why vllmtop?
+## Why vllmstat?
 
 The standard observability stack for vLLM is Prometheus + Grafana: powerful, but heavyweight. You need a running Prometheus instance, a Grafana server, a dashboard JSON import, and a browser tab — all just to see whether your inference server is busy.
 
-`vllmtop` replaces that for day-to-day monitoring. One command, no infrastructure. It scrapes the vLLM server's built-in `/metrics` endpoint directly and renders everything in your terminal, refreshing every second.
+`vllmstat` replaces that for day-to-day monitoring. One command, no infrastructure. It scrapes the vLLM server's built-in `/metrics` endpoint directly and renders everything in your terminal, refreshing every second.
 
-There is one other terminal tool (`vllm-top` on PyPI), but it is a basic `watch`-style metrics printer: no interactivity, no GPU panel, no latency percentiles, no speculative-decoding acceptance, no KV-compression ratio. `vllmtop` fills that gap — it is closer to `nvtop` than to `watch`.
+There is one other terminal tool (`vllm-top` on PyPI), but it is a basic `watch`-style metrics printer: no interactivity, no GPU panel, no latency percentiles, no speculative-decoding acceptance, no KV-compression ratio. `vllmstat` fills that gap — it is closer to `nvtop` than to `watch`.
 
 ---
 
 ## Install
 
 ```bash
-pip install vllmtop
+pip install vllmstat
 ```
 
 Or with pipx (isolated install, globally available):
 
 ```bash
-pipx install vllmtop
+pipx install vllmstat
 ```
 
 Or run it ephemerally without installing:
 
 ```bash
-uvx vllmtop
+uvx vllmstat
 ```
 
 ---
@@ -41,22 +41,22 @@ uvx vllmtop
 Point it at your vLLM server and it starts immediately:
 
 ```bash
-vllmtop
+vllmstat
 ```
 
 ```bash
 # Different host / port
-vllmtop --url http://my-gpu-host:8000
+vllmstat --url http://my-gpu-host:8000
 ```
 
 ```bash
 # Try the dashboard without a real server (uses synthetic data)
-vllmtop --mock
+vllmstat --mock
 ```
 
 ```bash
 # Print a single snapshot as JSON and exit — useful for scripting / alerting
-vllmtop --once --json
+vllmstat --once --json
 ```
 
 ### Key bindings
@@ -97,7 +97,7 @@ vllmtop --once --json
 
 ## Remote and containerised setups
 
-`vllmtop` does not need to run on the GPU machine. If NVML and `nvidia-smi` are not reachable from the machine you run it on — for example, when monitoring a remote server or when vLLM is isolated in its own GPU container — the GPU panel shows "unavailable" and all the vLLM telemetry panels (concurrency, throughput, cache, latency, spec-decode) continue to work normally. Pass `--no-gpu` to suppress the panel entirely.
+`vllmstat` does not need to run on the GPU machine. If NVML and `nvidia-smi` are not reachable from the machine you run it on — for example, when monitoring a remote server or when vLLM is isolated in its own GPU container — the GPU panel shows "unavailable" and all the vLLM telemetry panels (concurrency, throughput, cache, latency, spec-decode) continue to work normally. Pass `--no-gpu` to suppress the panel entirely.
 
 ---
 

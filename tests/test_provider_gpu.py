@@ -1,4 +1,4 @@
-from vllmtop.providers.gpu import GpuProvider, parse_nvidia_smi_csv, read_nvml
+from vllmstat.providers.gpu import GpuProvider, parse_nvidia_smi_csv, read_nvml
 
 
 class FakeNvml:

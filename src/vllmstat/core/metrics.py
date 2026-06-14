@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from vllmtop.core.histogram import histogram_quantile, windowed_buckets
-from vllmtop.core.kv import compute_kv
-from vllmtop.core.parse import (
+from vllmstat.core.histogram import histogram_quantile, windowed_buckets
+from vllmstat.core.kv import compute_kv
+from vllmstat.core.parse import (
     Families,
     first_value,
     get_buckets,
     info_labels,
     sum_value,
 )
-from vllmtop.core.rates import Rate
-from vllmtop.core.state import Quantiles, Snapshot
+from vllmstat.core.rates import Rate
+from vllmstat.core.state import Quantiles, Snapshot
 
 _LAT = {
     "ttft": "vllm:time_to_first_token_seconds",

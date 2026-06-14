@@ -1,6 +1,6 @@
-import vllmtop
+import vllmstat
 
 
 def test_version_present():
-    assert isinstance(vllmtop.__version__, str)
-    assert vllmtop.__version__.count(".") >= 2
+    assert isinstance(vllmstat.__version__, str)
+    assert vllmstat.__version__.count(".") >= 2

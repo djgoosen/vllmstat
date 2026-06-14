@@ -1,6 +1,6 @@
 import json
 
-from vllmtop.cli import run_once_json
+from vllmstat.cli import run_once_json
 
 
 def test_run_once_json_mock(capsys):

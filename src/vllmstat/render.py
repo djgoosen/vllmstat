@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from vllmtop.core.history import History
-from vllmtop.core.state import Snapshot
-from vllmtop.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
+from vllmstat.core.history import History
+from vllmstat.core.state import Snapshot
+from vllmstat.format import fmt_bytes, fmt_dur, fmt_pct, fmt_si, sparkline
 
 
 def header(s: Snapshot, *, url: str, interval: float, uptime: str) -> str:
     state = "● connected" if s.connected else "● down"
     models = ",".join(s.model_names) or "—"
-    parts = f"vllmtop  {models} @ {url}  engines {s.engine_count}"
+    parts = f"vllmstat  {models} @ {url}  engines {s.engine_count}"
     return f"{parts}  {state}  up {uptime}  {interval:.1f}s"
 
 

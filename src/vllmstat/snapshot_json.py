@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from vllmtop.core.state import Snapshot
+from vllmstat.core.state import Snapshot
 
 
 def snapshot_to_dict(s: Snapshot) -> dict:

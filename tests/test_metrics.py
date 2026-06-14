@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from vllmtop.core.metrics import MetricsEngine
-from vllmtop.core.parse import parse_metrics
+from vllmstat.core.metrics import MetricsEngine
+from vllmstat.core.parse import parse_metrics
 
 FIX = Path(__file__).parent / "fixtures" / "metrics_qwen3.txt"
 DIMS = {"layers": 48, "kv_heads": 4, "head_dim": 128}

@@ -1,4 +1,4 @@
-from vllmtop.core.history import History, Series
+from vllmstat.core.history import History, Series
 
 
 def test_series_caps_length():

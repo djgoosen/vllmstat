@@ -1,4 +1,4 @@
-from vllmtop.providers.mock import mock_gpu_snapshot
+from vllmstat.providers.mock import mock_gpu_snapshot
 
 
 def test_mock_gpu_two_devices():

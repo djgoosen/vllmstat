@@ -1,4 +1,4 @@
-from vllmtop.core.state import GpuSnapshot, Quantiles, Snapshot
+from vllmstat.core.state import GpuSnapshot, Quantiles, Snapshot
 
 
 def test_quantiles_defaults_none():

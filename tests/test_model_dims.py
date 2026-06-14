@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from vllmtop.model_dims import dims_from_config, load_model_dims
+from vllmstat.model_dims import dims_from_config, load_model_dims
 
 FIX = Path(__file__).parent / "fixtures" / "model_config.json"
 

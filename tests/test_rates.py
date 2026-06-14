@@ -1,6 +1,6 @@
 import math
 
-from vllmtop.core.rates import Rate
+from vllmstat.core.rates import Rate
 
 
 def test_first_update_is_zero():

@@ -1,6 +1,6 @@
-from vllmtop.core.metrics import MetricsEngine
-from vllmtop.core.parse import parse_metrics
-from vllmtop.providers.mock import MockProvider
+from vllmstat.core.metrics import MetricsEngine
+from vllmstat.core.parse import parse_metrics
+from vllmstat.providers.mock import MockProvider
 
 
 def test_mock_emits_parseable_metrics_that_vary():

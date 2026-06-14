@@ -1,6 +1,6 @@
-from vllmtop import render
-from vllmtop.core.history import History
-from vllmtop.core.state import GpuSample, GpuSnapshot, Snapshot
+from vllmstat import render
+from vllmstat.core.history import History
+from vllmstat.core.state import GpuSample, GpuSnapshot, Snapshot
 
 
 def _snap(**kw) -> Snapshot:
@@ -80,7 +80,7 @@ def test_specdecode_hidden_when_inactive():
 
 
 def test_gpu_panel_handles_all_none_optional_fields():
-    from vllmtop.core.state import GpuSample, GpuSnapshot
+    from vllmstat.core.state import GpuSample, GpuSnapshot
 
     s = _snap(
         gpu=GpuSnapshot(

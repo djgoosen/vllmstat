@@ -5,11 +5,11 @@ import os
 import sys
 import time
 
-from vllmtop.config import Config
-from vllmtop.core.metrics import MetricsEngine
-from vllmtop.core.parse import parse_metrics
-from vllmtop.providers.mock import MockProvider
-from vllmtop.snapshot_json import snapshot_to_dict
+from vllmstat.config import Config
+from vllmstat.core.metrics import MetricsEngine
+from vllmstat.core.parse import parse_metrics
+from vllmstat.providers.mock import MockProvider
+from vllmstat.snapshot_json import snapshot_to_dict
 
 
 def run_once_json(argv: list[str]) -> int:
@@ -22,8 +22,8 @@ def run_once_json(argv: list[str]) -> int:
     else:
         import asyncio
 
-        from vllmtop.model_dims import load_model_dims
-        from vllmtop.providers.vllm import VllmProvider
+        from vllmstat.model_dims import load_model_dims
+        from vllmstat.providers.vllm import VllmProvider
 
         async def _go():
             p = VllmProvider(base_url=cfg.url, metrics_path=cfg.metrics_path, api_key=cfg.api_key)
@@ -51,6 +51,6 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config.from_sources(argv, dict(os.environ))
     if cfg.once and cfg.json:
         return run_once_json(argv)
-    from vllmtop.app import run_app  # imported lazily so --once/--json needs no Textual
+    from vllmstat.app import run_app  # imported lazily so --once/--json needs no Textual
 
     return run_app(cfg)

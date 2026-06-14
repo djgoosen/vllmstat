@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from vllmtop.core.parse import (
+from vllmstat.core.parse import (
     first_value,
     get_buckets,
     info_labels,

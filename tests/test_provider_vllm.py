@@ -3,7 +3,7 @@ from pathlib import Path
 
 import httpx
 
-from vllmtop.providers.vllm import VllmProvider
+from vllmstat.providers.vllm import VllmProvider
 
 FIXDIR = Path(__file__).parent / "fixtures"
 

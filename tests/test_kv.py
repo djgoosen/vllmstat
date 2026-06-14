@@ -1,6 +1,6 @@
 import math
 
-from vllmtop.core.kv import (
+from vllmstat.core.kv import (
     compute_kv,
     fp16_bytes_per_token,
     nominal_ratio,

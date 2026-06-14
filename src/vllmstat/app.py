@@ -7,20 +7,20 @@ from textual.containers import Horizontal
 from textual.timer import Timer
 from textual.widgets import Footer
 
-from vllmtop import render
-from vllmtop.config import Config
-from vllmtop.core.history import History
-from vllmtop.core.metrics import MetricsEngine
-from vllmtop.core.parse import parse_metrics
-from vllmtop.core.state import Snapshot
-from vllmtop.model_dims import load_model_dims
-from vllmtop.providers.gpu import GpuProvider
-from vllmtop.providers.mock import MockProvider, mock_gpu_snapshot
-from vllmtop.providers.vllm import VllmProvider
-from vllmtop.widgets import Panel
+from vllmstat import render
+from vllmstat.config import Config
+from vllmstat.core.history import History
+from vllmstat.core.metrics import MetricsEngine
+from vllmstat.core.parse import parse_metrics
+from vllmstat.core.state import Snapshot
+from vllmstat.model_dims import load_model_dims
+from vllmstat.providers.gpu import GpuProvider
+from vllmstat.providers.mock import MockProvider, mock_gpu_snapshot
+from vllmstat.providers.vllm import VllmProvider
+from vllmstat.widgets import Panel
 
 
-class VllmTopApp(App):
+class VllmStatApp(App):
     CSS = """
     Panel { border: round $primary; padding: 0 1; height: auto; }
     #row1 { height: auto; }
@@ -178,5 +178,5 @@ class VllmTopApp(App):
 
 
 def run_app(cfg: Config) -> int:
-    VllmTopApp(cfg).run()
+    VllmStatApp(cfg).run()
     return 0

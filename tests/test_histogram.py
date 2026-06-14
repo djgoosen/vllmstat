@@ -1,6 +1,6 @@
 import math
 
-from vllmtop.core.histogram import histogram_quantile, windowed_buckets
+from vllmstat.core.histogram import histogram_quantile, windowed_buckets
 
 
 def test_quantile_linear_interpolation():

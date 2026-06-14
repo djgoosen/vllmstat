@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 
-from vllmtop import __version__
+from vllmstat import __version__
 
 
 @dataclass
@@ -19,7 +19,7 @@ class Config:
 
     @staticmethod
     def build_parser() -> argparse.ArgumentParser:
-        p = argparse.ArgumentParser(prog="vllmtop", description="nvtop for vLLM")
+        p = argparse.ArgumentParser(prog="vllmstat", description="nvtop for vLLM")
         p.add_argument("-u", "--url", default="http://localhost:8000")
         p.add_argument("--metrics-path", default="/metrics")
         p.add_argument("-i", "--interval", type=float, default=1.0)
@@ -28,7 +28,7 @@ class Config:
         p.add_argument("--mock", action="store_true", default=False)
         p.add_argument("--once", action="store_true", default=False)
         p.add_argument("--json", action="store_true", default=False)
-        p.add_argument("--version", action="version", version=f"vllmtop {__version__}")
+        p.add_argument("--version", action="version", version=f"vllmstat {__version__}")
         return p
 
     @classmethod

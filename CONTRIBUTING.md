@@ -1,4 +1,4 @@
-# Contributing to vllmtop
+# Contributing to vllmstat
 
 Thank you for your interest in contributing.
 
@@ -7,7 +7,7 @@ Thank you for your interest in contributing.
 Before diving in, read the design document — it explains the architecture, data-flow, metric names, and panel layout:
 
 ```
-docs/superpowers/specs/2026-06-14-vllmtop-design.md
+docs/superpowers/specs/2026-06-14-vllmstat-design.md
 ```
 
 ## Dev setup
@@ -20,7 +20,7 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-This installs `vllmtop` in editable mode together with all development dependencies (pytest, pytest-asyncio, ruff, pyright).
+This installs `vllmstat` in editable mode together with all development dependencies (pytest, pytest-asyncio, ruff, pyright).
 
 ## Run the tests
 

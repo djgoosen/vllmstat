@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from vllmtop.core.state import GpuSample, GpuSnapshot
+from vllmstat.core.state import GpuSample, GpuSnapshot
 
 _M = "mock-7b"
 

@@ -38,7 +38,7 @@ class KvInfo:
     capacity_tokens: int | None
     used_tokens: int | None
     ratio: float | None
-    ratio_kind: str            # "achieved" | "nominal" | "none"
+    ratio_kind: str  # "achieved" | "nominal" | "none"
     fp16_equiv_tokens: int | None
     fp16_full_ctx_gb: float | None
 

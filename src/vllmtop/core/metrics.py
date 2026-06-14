@@ -3,7 +3,11 @@ from __future__ import annotations
 from vllmtop.core.histogram import histogram_quantile, windowed_buckets
 from vllmtop.core.kv import compute_kv
 from vllmtop.core.parse import (
-    Families, first_value, get_buckets, hist_count, info_labels, sum_value,
+    Families,
+    first_value,
+    get_buckets,
+    info_labels,
+    sum_value,
 )
 from vllmtop.core.rates import Rate
 from vllmtop.core.state import Quantiles, Snapshot
@@ -25,7 +29,10 @@ def _int(s: str | None) -> int | None:
 
 class MetricsEngine:
     def __init__(
-        self, *, alpha: float = 0.3, dims: dict[str, int] | None = None,
+        self,
+        *,
+        alpha: float = 0.3,
+        dims: dict[str, int] | None = None,
         max_model_len: int | None = None,
     ) -> None:
         self.dims = dims
@@ -58,9 +65,10 @@ class MetricsEngine:
 
     def derive(self, fam: Families, now: float) -> Snapshot:
         labels = info_labels(fam, "vllm:cache_config_info")
-        model_names = sorted({
-            lbl.get("model_name", "") for lbl, _ in fam.get("vllm:num_requests_running", [])
-        } - {""})
+        model_names = sorted(
+            {lbl.get("model_name", "") for lbl, _ in fam.get("vllm:num_requests_running", [])}
+            - {""}
+        )
         engines = {lbl.get("engine") for lbl, _ in fam.get("vllm:num_requests_running", [])}
 
         # throughput rates
@@ -111,19 +119,29 @@ class MetricsEngine:
         draft_tokens = sum_value(fam, "vllm:spec_decode_num_draft_tokens_total")
         accepted = sum_value(fam, "vllm:spec_decode_num_accepted_tokens_total")
         spec_active = bool(drafts and draft_tokens)
-        spec_acceptance = (accepted / draft_tokens) if (spec_active and accepted is not None) else None
-        spec_per_draft = (accepted / drafts) if (spec_active and drafts and accepted is not None) else None
+        spec_acceptance = (
+            (accepted / draft_tokens)
+            if (spec_active and accepted is not None and draft_tokens is not None)
+            else None
+        )
+        spec_per_draft = (
+            (accepted / drafts) if (spec_active and drafts and accepted is not None) else None
+        )
 
         # efficiency (conditional)
         flops = self._flops.update(sum_value(fam, "vllm:estimated_flops_per_gpu_total") or 0.0, now)
-        rbytes = self._rbytes.update(sum_value(fam, "vllm:estimated_read_bytes_per_gpu_total") or 0.0, now)
-        wbytes = self._wbytes.update(sum_value(fam, "vllm:estimated_write_bytes_per_gpu_total") or 0.0, now)
+        rbytes = self._rbytes.update(
+            sum_value(fam, "vllm:estimated_read_bytes_per_gpu_total") or 0.0, now
+        )
+        wbytes = self._wbytes.update(
+            sum_value(fam, "vllm:estimated_write_bytes_per_gpu_total") or 0.0, now
+        )
         eff_active = (flops > 0) or (rbytes + wbytes > 0)
 
         snap = Snapshot(
             ts=now,
             connected=True,
-            model_names=model_names or ([labels.get("model_name")] if labels.get("model_name") else []),
+            model_names=model_names or ([mn] if (mn := labels.get("model_name")) else []),
             engine_count=len([e for e in engines if e is not None]) or 1,
             running=sum_value(fam, "vllm:num_requests_running") or 0.0,
             waiting=sum_value(fam, "vllm:num_requests_waiting") or 0.0,

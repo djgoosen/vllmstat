@@ -15,9 +15,9 @@ class Quantiles:
 class GpuSample:
     index: int
     name: str
-    util_gpu: float | None = None      # percent 0-100
-    mem_used: int | None = None        # bytes
-    mem_total: int | None = None       # bytes
+    util_gpu: float | None = None  # percent 0-100
+    mem_used: int | None = None  # bytes
+    mem_total: int | None = None  # bytes
     temp_c: float | None = None
     power_w: float | None = None
     power_limit_w: float | None = None
@@ -29,7 +29,7 @@ class GpuSample:
 @dataclass
 class GpuSnapshot:
     available: bool = False
-    source: str = "none"               # "nvml" | "nvidia-smi" | "none"
+    source: str = "none"  # "nvml" | "nvidia-smi" | "none"
     gpus: list[GpuSample] = field(default_factory=list)
     error: str | None = None
 
@@ -52,21 +52,21 @@ class Snapshot:
     req_rate: float = 0.0
     tokens_per_iter: float | None = None
     # cache reuse
-    prefix_hit_window: float | None = None     # 0-1
-    prefix_hit_lifetime: float | None = None   # 0-1
-    src_compute: float | None = None           # fraction 0-1
+    prefix_hit_window: float | None = None  # 0-1
+    prefix_hit_lifetime: float | None = None  # 0-1
+    src_compute: float | None = None  # fraction 0-1
     src_cache_hit: float | None = None
     src_external: float | None = None
     cached_tokens_total: float = 0.0
     recomputed_tokens_total: float = 0.0
     external_kv_active: bool = False
     # kv memory / compression
-    kv_usage: float = 0.0                      # 0-1
+    kv_usage: float = 0.0  # 0-1
     kv_capacity_tokens: int | None = None
     kv_used_tokens: int | None = None
     kv_dtype: str | None = None
     kv_ratio: float | None = None
-    kv_ratio_kind: str = "none"                # "achieved" | "nominal" | "none"
+    kv_ratio_kind: str = "none"  # "achieved" | "nominal" | "none"
     kv_fp16_equiv_tokens: int | None = None
     kv_fp16_full_ctx_gb: float | None = None
     # latency quantiles (seconds)
@@ -76,7 +76,7 @@ class Snapshot:
     queue: Quantiles = field(default_factory=Quantiles)
     # speculative decoding
     spec_active: bool = False
-    spec_acceptance: float | None = None       # accepted / draft_tokens
+    spec_acceptance: float | None = None  # accepted / draft_tokens
     spec_accepted_per_draft: float | None = None
     spec_per_pos: list[float] = field(default_factory=list)
     # efficiency (conditional)

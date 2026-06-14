@@ -7,7 +7,9 @@ def test_quantile_linear_interpolation():
     buckets = [(0.1, 1.0), (0.5, 3.0), (float("inf"), 4.0)]
     # total=4, p50 target=2.0 falls in bucket (0.1,0.5]: prev_count=1, count=3
     # frac=(2-1)/(3-1)=0.5 -> 0.1 + 0.5*(0.5-0.1)=0.3
-    assert math.isclose(histogram_quantile(buckets, 0.5), 0.3, rel_tol=1e-9)
+    result = histogram_quantile(buckets, 0.5)
+    assert result is not None
+    assert math.isclose(result, 0.3, rel_tol=1e-9)
 
 
 def test_quantile_empty_or_zero_total():

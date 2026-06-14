@@ -1,7 +1,10 @@
 import math
 
 from vllmtop.core.kv import (
-    parse_kv_bits, nominal_ratio, fp16_bytes_per_token, KvInfo, compute_kv,
+    compute_kv,
+    fp16_bytes_per_token,
+    nominal_ratio,
+    parse_kv_bits,
 )
 
 
@@ -14,7 +17,9 @@ def test_parse_kv_bits():
 
 
 def test_nominal_ratio_k3v4():
-    assert math.isclose(nominal_ratio("turboquant_k3v4_nc"), 32 / 7, rel_tol=1e-9)
+    r_k3v4 = nominal_ratio("turboquant_k3v4_nc")
+    assert r_k3v4 is not None
+    assert math.isclose(r_k3v4, 32 / 7, rel_tol=1e-9)
     assert nominal_ratio("fp16") == 1.0
     assert nominal_ratio("unknown") is None
 
@@ -37,9 +42,11 @@ def test_compute_kv_nominal_when_no_memory_bytes():
     assert info.capacity_tokens == 6947 * 64  # 444608
     assert info.used_tokens == round(444608 * 0.10)
     assert info.ratio_kind == "nominal"
+    assert info.ratio is not None
     assert math.isclose(info.ratio, 32 / 7, rel_tol=1e-9)
     assert info.fp16_equiv_tokens == round(444608 / (32 / 7))
     # fp16 KV for full ctx: 262144 * 98304 bytes = ~25.77 GB
+    assert info.fp16_full_ctx_gb is not None
     assert math.isclose(info.fp16_full_ctx_gb, 262144 * 98304 / 1e9, rel_tol=1e-6)
 
 
@@ -48,10 +55,13 @@ def test_compute_kv_achieved_when_memory_bytes_present():
     # actual kv memory=10_000_000 -> achieved ratio=9.8304
     info = compute_kv(
         cache_dtype="turboquant_k3v4_nc",
-        num_gpu_blocks=1000, block_size=1, kv_usage=0.0,
+        num_gpu_blocks=1000,
+        block_size=1,
+        kv_usage=0.0,
         kv_cache_memory_bytes=10_000_000,
         dims={"layers": 48, "kv_heads": 4, "head_dim": 128},
         max_model_len=1000,
     )
     assert info.ratio_kind == "achieved"
+    assert info.ratio is not None
     assert math.isclose(info.ratio, 98_304_000 / 10_000_000, rel_tol=1e-9)

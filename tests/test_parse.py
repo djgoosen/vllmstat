@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from vllmtop.core.parse import (
-    parse_metrics, sum_value, first_value, info_labels, get_buckets,
+    first_value,
+    get_buckets,
+    info_labels,
+    parse_metrics,
+    sum_value,
 )
 
 FIX = Path(__file__).parent / "fixtures" / "metrics_qwen3.txt"

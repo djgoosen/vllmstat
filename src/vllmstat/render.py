@@ -24,31 +24,34 @@ def header(s: Snapshot, *, url: str, interval: float, uptime: str) -> str:
     return f"{parts}  {state}  up {uptime}  {interval:.1f}s"
 
 
+def _series_plot(h: History, name: str, *, width: int, caption: str) -> str:
+    """A 4-row braille plot of one history series with a labelled caption."""
+    vals = list(h.series(name).values)
+    plot = "\n".join(braille_plot(vals, width=width, height=4, lo=0))
+    return f"{plot}\n {caption} · last {len(vals)}s"
+
+
 def concurrency(s: Snapshot, h: History, *, width: int | None = None) -> str:
     pw = _plot_width(width)
-    vals = list(h.series("running").values)
-    plot = "\n".join(braille_plot(vals, width=pw, height=4, lo=0))
     seqs = f"  max-seqs {s.max_num_seqs}" if s.max_num_seqs else ""
     return (
         f"CONCURRENCY\n"
         f" running {s.running:.0f} · waiting {s.waiting:.0f} · "
         f"preempt {s.preempt_rate:.1f}/s{seqs}\n"
-        f"{plot}\n"
-        f" running · last {len(vals)}s"
+        f"{_series_plot(h, 'running', width=pw, caption='running')}\n"
+        f"{_series_plot(h, 'waiting', width=pw, caption='waiting')}"
     )
 
 
 def throughput(s: Snapshot, h: History, *, width: int | None = None) -> str:
     pw = _plot_width(width)
-    vals = list(h.series("gen_tps").values)
-    plot = "\n".join(braille_plot(vals, width=pw, height=4, lo=0))
     tpi = f"{s.tokens_per_iter:.0f}" if s.tokens_per_iter else "—"
     return (
         f"THROUGHPUT\n"
         f" gen {s.gen_tps:.0f} tok/s · prompt {s.prompt_tps:.0f} tok/s · "
         f"tok/iter {tpi} · {s.req_rate:.1f} req/s\n"
-        f"{plot}\n"
-        f" gen tok/s · last {len(vals)}s"
+        f"{_series_plot(h, 'gen_tps', width=pw, caption='gen tok/s')}\n"
+        f"{_series_plot(h, 'prompt_tps', width=pw, caption='prompt tok/s')}"
     )
 
 

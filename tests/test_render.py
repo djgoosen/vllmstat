@@ -46,22 +46,31 @@ def test_throughput_panel_shows_tps_and_braille_plot():
     h = History()
     for v in [10, 50, 90, 142, 142]:
         h.push("gen_tps", v)
+    for v in [20, 80, 200, 318, 318]:
+        h.push("prompt_tps", v)
     text = render.throughput(_snap(), h, width=40)
     assert "142" in text  # numeric gen tok/s still shown
     assert "318" in text  # prompt still shown as text
-    assert _has_braille(text)  # braille area plot present
-    assert "gen tok/s" in text  # caption
+    assert _has_braille(text)  # braille area plots present
+    # both time series now have their own plot + caption
+    assert "gen tok/s" in text
+    assert "prompt tok/s" in text
 
 
 def test_concurrency_panel_shows_counts_and_braille_plot():
     h = History()
     for v in [0, 1, 2, 3, 2]:
         h.push("running", v)
+    for v in [0, 0, 1, 2, 0]:
+        h.push("waiting", v)
     text = render.concurrency(_snap(running=2.0, waiting=0.0), h, width=40)
     assert "running 2" in text
     assert "waiting 0" in text
     assert _has_braille(text)
     assert "preempt" in text
+    # both time series now have their own plot + caption
+    assert "running" in text
+    assert "waiting" in text
 
 
 def test_timeseries_panels_no_braille_when_empty_history():

@@ -370,3 +370,68 @@ def test_gpu_panel_amd_rpm_fan_and_no_hint_when_util_present():
     assert "1800" in text and "RPM" in text
     assert "42" in text
     assert "prereq" not in text.lower()  # util+VRAM present -> no hint
+
+
+def _fleet_fixture():
+    from vllmstat.core.state import (
+        FleetSnapshot,
+        GpuSample,
+        GpuSnapshot,
+        Instance,
+        Quantiles,
+        Snapshot,
+    )
+
+    up = Snapshot(
+        ts=1.0,
+        connected=True,
+        running=12,
+        waiting=3,
+        gen_tps=1400,
+        kv_usage=0.63,
+        ttft=Quantiles(p50=0.142),
+        gpu=GpuSnapshot(
+            available=True,
+            source="x",
+            gpus=[GpuSample(index=0, name="Arc", vendor="intel", util_gpu=100.0)],
+        ),
+    )
+    down = Snapshot(ts=1.0, connected=False)
+    return FleetSnapshot(
+        ts=1.0,
+        items=[
+            (Instance("qwen-30b", "http://localhost:8000", gpus=(0,), locality="local"), up),
+            (Instance("remote-a", "http://gpu-box:8000", locality="remote"), down),
+        ],
+    )
+
+
+def test_fleet_overview_rows_and_cursor():
+    from vllmstat import render
+
+    out = render.fleet_overview(_fleet_fixture(), 0, width=80, uptime="0h03m")
+    lines = out.splitlines()
+    assert "fleet" in lines[0]
+    assert "▸" in next(ln for ln in lines if "qwen-30b" in ln)  # selected cursor
+    remote_line = next(ln for ln in lines if "remote-a" in ln)
+    assert "✗" in remote_line and "(remote)" in remote_line  # down + remote gpu cell
+    assert "intel" in next(ln for ln in lines if "qwen-30b" in ln)  # local gpu cell
+
+
+def test_fleet_overview_none_safe_selection_out_of_range():
+    from vllmstat import render
+
+    render.fleet_overview(_fleet_fixture(), 99, width=80)  # must not raise
+
+
+def test_detail_header_breadcrumb():
+    from vllmstat import render
+    from vllmstat.core.state import Instance, Snapshot
+
+    h = render.detail_header(
+        Instance("qwen-30b", "http://localhost:8000"),
+        Snapshot(ts=1.0, connected=True),
+        interval=1.0,
+        uptime="0h01m",
+    )
+    assert "qwen-30b" in h and "esc back" in h

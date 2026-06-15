@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from vllmstat.core.history import History
-from vllmstat.core.state import Snapshot
+from vllmstat.core.state import FleetSnapshot, Instance, Snapshot
 from vllmstat.format import fmt_bytes, fmt_dur, fmt_dur_hms, fmt_pct, fmt_si, sparkline
 from vllmstat.plot import braille_plot
 
@@ -115,6 +115,51 @@ def specdecode(s: Snapshot) -> str:
         return ""
     apd = f"{s.spec_accepted_per_draft:.2f}" if s.spec_accepted_per_draft is not None else "—"
     return f"SPEC DECODE  acceptance {fmt_pct(s.spec_acceptance)}  accepted/draft {apd}"
+
+
+def _gpu_cell(s: Snapshot, inst: Instance) -> str:
+    if inst.locality == "remote":
+        return "(remote)"
+    if not s.gpu.available or not s.gpu.gpus:
+        return "—"
+    idxs = ",".join(str(g.index) for g in s.gpu.gpus)
+    g0 = s.gpu.gpus[0]
+    util = f"{g0.util_gpu:.0f}%" if g0.util_gpu is not None else "—"
+    return f"G{idxs} {g0.vendor} {util}".strip()
+
+
+def fleet_overview(
+    fleet: FleetSnapshot,
+    selected: int,
+    *,
+    width: int | None = None,
+    uptime: str = "",
+    interval: float = 1.0,
+    show_gpu: bool = True,
+) -> str:
+    n = len(fleet.items)
+    head = f"vllmstat  fleet · {n} instance{'' if n == 1 else 's'}  up {uptime}  {interval:.1f}s"
+    cols = f" {'NAME':<14} {'ST':<2} {'RUN/WAIT':>9} {'GEN t/s':>8} {'KV%':>5} {'p50':>7}"
+    if show_gpu:
+        cols += "  GPU"
+    lines = [head, cols]
+    for i, (inst, s) in enumerate(fleet.items):
+        cur = "▸" if i == selected else " "
+        st = "●" if s.connected else "✗"
+        rw = f"{s.running:.0f}/{s.waiting:.0f}" if s.connected else "—"
+        gen = fmt_si(s.gen_tps) if s.connected else "—"
+        kv = fmt_pct(s.kv_usage) if s.connected else "—"
+        p50 = fmt_dur(s.ttft.p50) if (s.connected and s.ttft.p50 is not None) else "—"
+        row = f"{cur}{inst.name:<14.14} {st:<2} {rw:>9} {gen:>8} {kv:>5} {p50:>7}"
+        if show_gpu:
+            row += f"  {_gpu_cell(s, inst)}"
+        lines.append(row)
+    return "\n".join(lines)
+
+
+def detail_header(inst: Instance, s: Snapshot, *, interval: float, uptime: str) -> str:
+    state = "● connected" if s.connected else "✗ down"
+    return f"‹ fleet / {inst.name} @ {inst.url}   esc back    {state}  up {uptime}  {interval:.1f}s"
 
 
 def efficiency(s: Snapshot) -> str:

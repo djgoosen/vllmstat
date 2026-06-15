@@ -206,7 +206,8 @@ def tee(
             rows.append(_tee_one_line(f"· {e.text or ''}", w))
     if not rows:
         return f"{head}\n (waiting for requests…)"
-    return head + "\n" + "\n".join(rows[-(height - 1) :])
+    visible = rows[-(height - 1) :] if height > 1 else rows[-1:]
+    return head + "\n" + "\n".join(visible)
 
 
 def gpu(s: Snapshot) -> str:

@@ -119,7 +119,7 @@ class LogTailer:
         if self._proc is not None:
             try:
                 self._proc.terminate()
-            except ProcessLookupError:
+            except OSError:  # already-dead/zombie/perm — cleanup must never raise
                 pass
         if self._task is not None:
             self._task.cancel()

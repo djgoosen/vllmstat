@@ -23,6 +23,12 @@ def test_parse_4xx_and_nonaccess():
     assert parse_access_line("Engine 000: Avg prompt throughput: 0.0 tokens/s", now=1.0) is None
 
 
+def test_parse_ipv6_client():
+    line = 'INFO: [::1]:54321 - "POST /v1/chat/completions HTTP/1.1" 200 OK'
+    e = parse_access_line(line, now=1.0)
+    assert e and e.client == "::1" and e.method == "POST" and e.status == 200
+
+
 def test_logtailer_follows_file(tmp_path):
     p = tmp_path / "log.txt"
     p.write_text("")

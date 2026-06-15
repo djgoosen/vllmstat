@@ -65,8 +65,11 @@ vllmstat --once --json
 |-----|--------|
 | `q` | Quit |
 | `p` | Pause / resume polling |
-| `g` | Toggle GPU panel on/off |
-| `r` | Reset the SESSION averages |
+| `g` | Toggle GPU panel / column on/off |
+| `r` | Reset the SESSION averages (of the selected instance) |
+| `↑` / `↓` (or `k` / `j`) | Fleet overview: move the selection |
+| `Enter` | Fleet overview: open the selected instance's dashboard |
+| `Esc` | Drill-in: return to the fleet overview |
 | `+` / `=` | Halve the refresh interval (faster) |
 | `-` | Double the refresh interval (slower) |
 
@@ -74,13 +77,15 @@ vllmstat --once --json
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-u` / `--url` | `http://localhost:8000` | vLLM server base URL |
+| `-u` / `--url` | `http://localhost:8000` | vLLM server base URL. **Repeatable** — pass it more than once for a fleet. |
+| `--config` | — | Path to a TOML config file defining instances (see [Fleet monitoring](#fleet--multi-instance-monitoring)) |
+| `--discover-docker` | — | Auto-discover local vLLM Docker containers and add them to the fleet |
 | `--metrics-path` | `/metrics` | Prometheus metrics path |
 | `-i` / `--interval` | `1.0` | Refresh interval in seconds |
 | `--api-key` | — | Bearer token (`VLLM_API_KEY` env var also accepted) |
 | `--no-gpu` | — | Disable the GPU panel entirely |
 | `--mock` | — | Use synthetic data — no server required |
-| `--once --json` | — | Print one snapshot as JSON and exit |
+| `--once --json` | — | Print one snapshot as JSON and exit (a JSON array in fleet mode) |
 | `--version` | — | Print version and exit |
 
 ---
@@ -94,6 +99,70 @@ vllmstat --once --json
 - **Latency percentiles** — TTFT, TPOT, end-to-end, and queue-wait time, each at p50 / p90 / p99, computed over a rolling window so recent spikes are visible immediately.
 - **Speculative decoding** — acceptance rate, accepted tokens per draft, per-position acceptance (when the server reports it). The panel is hidden when spec-decode is not active.
 - **Per-GPU stats** — utilisation %, VRAM used / total, temperature, power draw vs. limit, clocks, fan. Works on NVIDIA, AMD, and Intel GPUs (see [GPU support](#gpu-support) for what each vendor reports). Multi-GPU and mixed-vendor hosts show every GPU.
+- **Fleet / multi-instance** — monitor many vLLM servers at once (local Docker containers and/or remote hosts) from one nvtop-style overview, and drill into any instance's full dashboard. See [Fleet monitoring](#fleet--multi-instance-monitoring).
+
+---
+
+## Fleet / multi-instance monitoring
+
+Point one `vllmstat` at **many** vLLM servers at once — several local Docker containers each pinned to different GPUs, remote servers across your network, or both. You get an nvtop-style **overview** with one line per instance; press <kbd>Enter</kbd> to **drill into** any instance's full dashboard and <kbd>Esc</kbd> to come back.
+
+![vllmstat fleet overview](https://raw.githubusercontent.com/bryanvine/vllmstat/main/docs/fleet.png)
+
+A single `--url` (or no arguments at all) keeps the classic single-instance dashboard unchanged — fleet mode activates only when more than one instance is resolved.
+
+### Three ways to define a fleet
+
+They all merge together, de-duplicated by URL:
+
+**1. Repeatable `--url`** — ad-hoc, no config:
+
+```bash
+vllmstat --url http://localhost:8000 --url http://gpu-box-2:8000
+```
+
+**2. A config file** — first found of `--config PATH`, `$VLLMSTAT_CONFIG`, `./vllmstat.toml`, or `~/.config/vllmstat/config.toml`:
+
+```toml
+# optional global defaults (an explicit CLI flag still overrides these)
+interval = 1.0
+gpu = true
+
+[[instance]]
+name = "qwen3-30b"
+url  = "http://localhost:8000"
+gpus = [0]                         # local → show GPU 0's hardware stats
+
+[[instance]]
+name = "llama-70b"
+url  = "http://localhost:8001"
+gpus = [1]
+
+[[instance]]
+name    = "remote-a100"
+url     = "http://gpu-box-2:8000"  # remote → serving metrics only
+api_key = "sk-..."
+```
+
+**3. Docker auto-discovery** — scan the local Docker daemon for vLLM containers and add them automatically, including each one's published port and `--gpus` / `NVIDIA_VISIBLE_DEVICES` pinning:
+
+```bash
+vllmstat --discover-docker
+```
+
+It looks for containers whose image or command mentions `vllm`. If Docker isn't installed or reachable, discovery is silently skipped — it never crashes the dashboard.
+
+### Local vs. remote
+
+Each instance is classified **local** or **remote** automatically from its hostname (override with `local = true` / `local = false` in the config). Local instances are mapped to the GPUs listed in `gpus = [...]` (or found by Docker discovery) and show those GPUs' hardware stats — utilisation, VRAM, temperature, power — sliced from the host. Remote instances show serving metrics only: reading another machine's GPU hardware over HTTP isn't possible, since vLLM's `/metrics` endpoint doesn't expose it.
+
+### Scripting a fleet
+
+`--once --json` emits a single object for one instance, or a JSON **array** (one element per instance, tagged with `name` / `url` / `locality`) for a fleet:
+
+```bash
+vllmstat --once --json --url http://localhost:8000 --url http://localhost:8001
+```
 
 ---
 

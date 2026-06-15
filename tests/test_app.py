@@ -81,3 +81,16 @@ async def test_fleet_mounts_overview_and_drills_in():
         await pilot.press("escape")
         assert app.in_detail is False
         assert app.p_overview.display is True
+
+
+@pytest.mark.asyncio
+async def test_single_instance_shows_all_host_gpus():
+    # Regression: a default instance has no gpus mapping; it must still show
+    # every host GPU (the pre-fleet behaviour), not an empty GPU panel.
+    cfg = Config(mock=True, interval=0.1, gpu=True)
+    app = VllmStatApp(cfg)
+    async with app.run_test() as pilot:
+        await pilot.pause(0.3)
+        assert app.snapshot is not None
+        assert app.snapshot.gpu.available is True
+        assert len(app.snapshot.gpu.gpus) >= 1

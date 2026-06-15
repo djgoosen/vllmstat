@@ -21,8 +21,14 @@ def test_slice_gpu_subset():
     assert sub.available and [g.index for g in sub.gpus] == [1]
 
 
-def test_slice_gpu_empty_mapping():
-    assert slice_gpu(HOST, ()).available is False
+def test_slice_gpu_empty_mapping_shows_whole_host():
+    # No explicit gpus mapping → show every host GPU (single-instance behaviour).
+    sub = slice_gpu(HOST, ())
+    assert sub.available and [g.index for g in sub.gpus] == [0, 1]
+
+
+def test_slice_gpu_unavailable_host_stays_unavailable():
+    assert slice_gpu(GpuSnapshot(available=False), (0,)).available is False
 
 
 class FakeProvider:

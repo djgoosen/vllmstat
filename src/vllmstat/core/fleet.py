@@ -12,13 +12,16 @@ from vllmstat.providers.vllm import VllmProvider
 
 
 def slice_gpu(host: GpuSnapshot, gpus: tuple[int, ...]) -> GpuSnapshot:
-    """Return a GpuSnapshot restricted to the requested GPU indices.
+    """Return a GpuSnapshot restricted to the GPU indices a local instance uses.
 
-    Returns an unavailable snapshot when *gpus* is empty or *host* is not
-    available.
+    An empty *gpus* means "no explicit mapping" → show the whole host (matches
+    single-instance behaviour, where every GPU is shown). When *gpus* is given,
+    return only those indices. An unavailable host stays unavailable.
     """
-    if not host.available or not gpus:
+    if not host.available:
         return GpuSnapshot(available=False, source=host.source)
+    if not gpus:
+        return host
     want = set(gpus)
     sub = [g for g in host.gpus if g.index in want]
     return GpuSnapshot(available=bool(sub), source=host.source, gpus=sub)

@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from dataclasses import replace
 
 from vllmstat.config import Config
 from vllmstat.core.metrics import MetricsEngine
@@ -54,6 +55,8 @@ def resolve_instances(cfg: Config, env: dict[str, str]) -> Config:
         defaults_metrics_path=cfg.metrics_path,
         local_names=local_names,
     )
+    if cfg.logs:
+        cfg.instances = [replace(i, logs=i.logs or cfg.logs) for i in cfg.instances]
     return cfg
 
 

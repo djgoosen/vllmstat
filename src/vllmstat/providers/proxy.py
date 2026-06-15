@@ -151,9 +151,9 @@ class TeeProxy:
         await web.TCPSite(runner, self.host, self.port).start()
 
     async def stop(self) -> None:
-        from aiohttp import web
-
         if self._runner is not None:
+            from aiohttp import web
+
             assert isinstance(self._runner, web.AppRunner)
             await self._runner.cleanup()
             self._runner = None
@@ -184,7 +184,10 @@ class TeeProxy:
                 streaming=streaming,
                 done=False,
             )
-            self._on_event(event)
+            try:
+                self._on_event(event)
+            except Exception:  # noqa: BLE001 - an observer must never break the relay
+                event = None
 
         fwd = {k: v for k, v in request.headers.items() if k.lower() not in _HOP}
         fwd["accept-encoding"] = "identity"

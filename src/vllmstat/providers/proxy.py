@@ -115,8 +115,8 @@ def parse_proxy_addr(s: str) -> tuple[str, int]:
         port = int(port_s)
     except ValueError as e:
         raise ValueError(f"invalid proxy port: {port_s!r}") from e
-    if not 1 <= port <= 65535:
-        raise ValueError(f"invalid proxy port: {port} (must be 1-65535)")
+    if not 0 <= port <= 65535:
+        raise ValueError(f"invalid proxy port: {port} (must be 0-65535)")
     return host, port
 
 

@@ -15,7 +15,10 @@ def normalize_url(url: str) -> str:
         u = "http://" + u
     p = urlparse(u)
     host = (p.hostname or "").lower()
+    if ":" in host:  # IPv6 literal — urlparse strips the brackets; restore them
+        host = f"[{host}]"
     port = f":{p.port}" if p.port else ""
+    # query/fragment are intentionally dropped: a metrics base URL never carries them.
     return f"{p.scheme}://{host}{port}{p.path.rstrip('/')}"
 
 

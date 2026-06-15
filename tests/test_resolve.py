@@ -15,6 +15,13 @@ def test_normalize_url():
     assert normalize_url("http://h:9/metrics/") == "http://h:9/metrics"
 
 
+def test_normalize_url_ipv6():
+    # urlparse strips IPv6 brackets; normalize_url must restore them so the
+    # result is a valid, re-parseable URL (and ::1 still classifies as local).
+    assert normalize_url("http://[::1]:8000/") == "http://[::1]:8000"
+    assert classify_locality("http://[::1]:8000", {"::1"}) == "local"
+
+
 def test_classify_locality():
     assert classify_locality("http://localhost:8000", LN) == "local"
     assert classify_locality("http://gpu-box:8000", LN) == "remote"

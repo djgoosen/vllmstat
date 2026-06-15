@@ -45,3 +45,9 @@ def test_fleet_snapshot_defaults():
 
     fs = FleetSnapshot(ts=1.0)
     assert fs.items == [] and fs.gpu.available is False
+
+
+def test_instance_logs_default_none():
+    from vllmstat.core.state import Instance
+
+    assert Instance(name="a", url="http://x").logs is None

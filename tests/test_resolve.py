@@ -54,3 +54,13 @@ def test_resolve_fleet_dedupes_names():
     b = instance_from_dict({"url": "http://b:8000", "name": "x"}, local_names=LN)
     out = resolve_fleet([a, b], [], [], local_names=LN)
     assert [i.name for i in out] == ["x", "x#2"]
+
+
+def test_instance_from_dict_reads_logs():
+    from vllmstat.core.resolve import instance_from_dict
+
+    i = instance_from_dict(
+        {"url": "http://localhost:8000", "logs": "docker:x"},
+        local_names={"localhost"},
+    )
+    assert i.logs == "docker:x"

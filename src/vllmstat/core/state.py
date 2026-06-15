@@ -44,6 +44,7 @@ class Instance:
     api_key: str | None = None
     gpus: tuple[int, ...] = ()
     locality: str = "local"  # "local" | "remote"
+    logs: str | None = None  # tee log source: "docker:NAME" or a file path
 
 
 @dataclass

@@ -66,6 +66,7 @@ def instance_from_dict(
         api_key=raw.get("api_key", defaults_api_key),
         gpus=tuple(int(g) for g in raw.get("gpus", [])),
         locality=locality,
+        logs=raw.get("logs"),
     )
 
 

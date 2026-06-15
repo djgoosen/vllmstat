@@ -7,6 +7,7 @@ from vllmstat.core.history import History
 from vllmstat.core.metrics import MetricsEngine
 from vllmstat.core.parse import parse_metrics
 from vllmstat.core.state import FleetSnapshot, GpuSnapshot, Instance, Snapshot
+from vllmstat.core.tee import TeeBuffer
 from vllmstat.model_dims import load_model_dims
 from vllmstat.providers.vllm import VllmProvider
 
@@ -39,6 +40,7 @@ class InstanceRuntime:
         )
         self._engine = MetricsEngine()
         self.history: History = History()
+        self.tee: TeeBuffer = TeeBuffer()
         self.snapshot: Snapshot | None = None
         self.model_names: list[str] = []
         self._dims_loaded = False

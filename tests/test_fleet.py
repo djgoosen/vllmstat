@@ -81,6 +81,15 @@ def test_build_fleet_from_instances():
     assert len(fleet.runtimes) == 1
 
 
+def test_runtime_has_tee_buffer():
+    from vllmstat.core.fleet import InstanceRuntime
+    from vllmstat.core.state import Instance
+    from vllmstat.core.tee import TeeBuffer
+
+    rt = InstanceRuntime(Instance("a", "http://x"))
+    assert isinstance(rt.tee, TeeBuffer) and len(rt.tee) == 0
+
+
 def test_mock_fleet_returns_3_connected_items():
     from vllmstat.providers.mock import mock_fleet
 

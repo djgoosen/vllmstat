@@ -82,13 +82,15 @@ def build_instances(
         port = host_port_from_inspect(insp)
         if not port:
             continue
+        name = _name(insp, row)
         out.append(
             Instance(
-                name=_name(insp, row),
+                name=name,
                 url=normalize_url(f"http://localhost:{port}"),
                 metrics_path=default_metrics_path,
                 gpus=gpus_from_inspect(insp, host_gpu_count=host_gpu_count),
                 locality="local",
+                logs=f"docker:{name}",
             )
         )
     return out

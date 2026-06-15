@@ -60,6 +60,7 @@ def test_build_instances_filters_and_maps():
     assert len(out) == 1
     assert out[0].name == "qwen" and out[0].url == "http://localhost:9000"
     assert out[0].gpus == (0,) and out[0].locality == "local"
+    assert out[0].logs == "docker:qwen"
 
 
 def test_discover_docker_with_stub_run():

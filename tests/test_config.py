@@ -40,3 +40,8 @@ def test_url_default_when_none():
 def test_config_and_discover_flags():
     c = Config.from_sources(["--config", "/tmp/x.toml", "--discover-docker"], {})
     assert c.config_path == "/tmp/x.toml" and c.discover_docker is True
+
+
+def test_logs_flag():
+    c = Config.from_sources(["--logs", "docker:vllm-xpu"], {})
+    assert c.logs == "docker:vllm-xpu"

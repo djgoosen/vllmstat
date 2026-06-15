@@ -147,6 +147,7 @@ class VllmStatApp(App):
                     await self._proxy.start()
                 except Exception as e:  # noqa: BLE001
                     rt0.tee.push(TeeEvent(ts=time.time(), kind="note", text=f"proxy failed: {e}"))
+                    await self._proxy.stop()  # release the httpx client on start failure
                     self._proxy = None
                     self._proxy_desc = ""
 

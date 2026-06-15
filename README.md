@@ -82,6 +82,7 @@ vllmstat --once --json
 | `--config` | — | Path to a TOML config file defining instances (see [Fleet monitoring](#fleet--multi-instance-monitoring)) |
 | `--discover-docker` | — | Auto-discover local vLLM Docker containers and add them to the fleet (also wires each one's log tee) |
 | `--logs` | — | Tail a log source into the TEE request-feed panel: `docker:NAME` or a file path |
+| `--proxy` | — | Run a reverse proxy on `[HOST:]PORT` that tees full prompts/responses (needs `vllmstat[proxy]`) |
 | `--metrics-path` | `/metrics` | Prometheus metrics path |
 | `-i` / `--interval` | `1.0` | Refresh interval in seconds |
 | `--api-key` | — | Bearer token (`VLLM_API_KEY` env var also accepted) |
@@ -102,7 +103,7 @@ vllmstat --once --json
 - **Speculative decoding** — acceptance rate, accepted tokens per draft, per-position acceptance (when the server reports it). The panel is hidden when spec-decode is not active.
 - **Per-GPU stats** — utilisation %, VRAM used / total, temperature, power draw vs. limit, clocks, fan. Works on NVIDIA, AMD, and Intel GPUs (see [GPU support](#gpu-support) for what each vendor reports). Multi-GPU and mixed-vendor hosts show every GPU.
 - **Fleet / multi-instance** — monitor many vLLM servers at once (local Docker containers and/or remote hosts) from one nvtop-style overview, and drill into any instance's full dashboard. See [Fleet monitoring](#fleet--multi-instance-monitoring).
-- **Tee request feed** — a live, toggleable panel of incoming requests (method, path, status, client) tailed from the server logs. See [Tee](#tee--live-request-feed).
+- **Tee** — a live, toggleable panel of traffic: a request feed tailed from the server logs, or (in proxy mode) the full prompts and streamed completions. See [Tee](#tee--request-feed--content-tee).
 
 ---
 
@@ -169,22 +170,35 @@ vllmstat --once --json --url http://localhost:8000 --url http://localhost:8001
 
 ---
 
-## Tee — live request feed
+## Tee — request feed & content tee
 
-Add a **TEE** panel under the dashboard showing a live feed of requests hitting your vLLM server, tailed straight from its logs — no extra setup:
+A **TEE** panel under the dashboard shows traffic to your vLLM server, from either of two sources. Press **`t`** to toggle it.
 
-![vllmstat tee panel](https://raw.githubusercontent.com/bryanvine/vllmstat/main/docs/tee.png)
+### Request feed (from logs — zero setup)
+
+Tail the server's logs for a live feed of incoming requests:
+
+![vllmstat tee request feed](https://raw.githubusercontent.com/bryanvine/vllmstat/main/docs/tee.png)
 
 ```bash
 vllmstat --logs docker:vllm-xpu        # tail a Docker container's logs
 vllmstat --logs /var/log/vllm.log      # …or a log file
 ```
 
-You can also set it per-instance in the config (`logs = "docker:NAME"`), and `--discover-docker` wires it up automatically for every vLLM container it finds. Press **`t`** to toggle the panel.
+You can set it per-instance in the config (`logs = "docker:NAME"`), and `--discover-docker` wires it up automatically for every vLLM container it finds. It shows method, path, status, and client per request (`4xx`/`5xx` flagged); health-check / metrics noise (`/health`, `/metrics`, `/v1/models`) is filtered. It does **not** show prompt/response *text* — modern vLLM (the V1 engine) doesn't log content, only access lines. For that, use proxy mode ↓.
 
-**What it shows:** method, path, status, and client for each request, with `4xx`/`5xx` flagged. Health-check / metrics-scrape noise (`/health`, `/metrics`, `/v1/models`) is filtered out.
+### Content tee (proxy — full prompts & responses)
 
-**What it does _not_ show (yet):** the prompt and response *text*. Modern vLLM (the V1 engine) doesn't log request/response content — its logs contain only access lines. Teeing the actual prompts and completions needs a **proxy mode** (`--proxy`, coming next): vllmstat sits in front of vLLM and clients point at it.
+Run vllmstat as a small reverse proxy in front of vLLM and point your client at it; it forwards every request (streaming included, byte-for-byte) and tees the **actual prompts and completions**:
+
+![vllmstat content tee](https://raw.githubusercontent.com/bryanvine/vllmstat/main/docs/proxy.png)
+
+```bash
+pip install 'vllmstat[proxy]'                        # adds aiohttp
+vllmstat --proxy 9000 --url http://localhost:8000    # clients now call :9000
+```
+
+Point your app (or e.g. open-webui) at `http://<host>:9000`. Streaming responses are relayed to the client unchanged while the completion is accumulated live in the panel. The proxy targets a single upstream. Captured prompts/responses render only in your local terminal — nothing is stored or sent anywhere — but treat the panel as sensitive if your prompts are.
 
 ---
 
